@@ -14,12 +14,12 @@ include '_header.php';
                 <p class="tip" id="info"></p>
             </div>
             <div class="tool-panel">
-                <label>功能演示模式（无 CDN 时）</label>
+                <label>组件状态</label>
                 <div id="demo" style="padding:10px;border:1px dashed #ccc;border-radius:6px;background:#fafafa;min-height:60px;">
-                    合并功能需要联网加载 <code>pdf-lib</code>。若下方未显示"库已加载"，则当前处于演示模式，界面结构可预览。
+                    PDF 处理组件已随系统本地部署，局域网断网环境也可使用。
                 </div>
             </div>
-            <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js" onerror="document.getElementById('info').textContent='⚠ CDN 加载失败，当前为演示模式'"></script>
+            <script src="../static/vendor/pdf-lib.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';document.getElementById('info').textContent='本地组件不可用，正在尝试网络备用组件…'"></script>
             <script>
             const $ = id => document.getElementById(id);
             let resultBlob = null;
@@ -27,13 +27,22 @@ include '_header.php';
 
             $('files').addEventListener('change', function(e) {
                 selectedFiles = Array.from(e.target.files);
-                const html = selectedFiles.map((f, i) => (i + 1) + '. ' + f.name + '（' + (f.size / 1024).toFixed(1) + ' KB）').join('<br>');
-                $('fileList').innerHTML = html || '（未选择文件）';
+                const list = $('fileList');
+                list.replaceChildren();
+                if (!selectedFiles.length) {
+                    list.textContent = '（未选择文件）';
+                    return;
+                }
+                selectedFiles.forEach(function(file, index) {
+                    const row = document.createElement('div');
+                    row.textContent = (index + 1) + '. ' + file.name + '（' + (file.size / 1024).toFixed(1) + ' KB）';
+                    list.appendChild(row);
+                });
             });
 
             async function doMerge() {
                 if (!selectedFiles.length) return alert('请先选择 PDF 文件');
-                if (!window.PDFLib) return alert('pdf-lib 未加载，请检查网络后刷新');
+                if (!window.PDFLib) return alert('PDF 组件未加载，请刷新页面或联系管理员');
                 $('info').textContent = '正在合并…';
                 try {
                     const PDFLib = window.PDFLib;
@@ -64,7 +73,7 @@ include '_header.php';
                 const check = setInterval(() => {
                     if (window.PDFLib) {
                         clearInterval(check);
-                        $('info').textContent = '✓ pdf-lib 已加载，可上传 PDF 合并';
+                        $('info').textContent = '✓ PDF 组件已加载，可上传 PDF 合并';
                     }
                 }, 300);
                 setTimeout(() => clearInterval(check), 5000);

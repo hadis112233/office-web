@@ -12,6 +12,14 @@ include '_header.php';
                             <img id="qrImg" alt="扫码上传" />
                         </div>
                         <p class="qr-hint">扫码后在手机端拍照上传，照片会自动同步到此页面</p>
+                        <div class="mobile-address-setting">
+                            <label for="mobileBaseUrl">手机访问地址</label>
+                            <div class="mobile-address-row">
+                                <input id="mobileBaseUrl" type="url" inputmode="url" placeholder="例如：http://192.168.1.20:8080">
+                                <button id="refreshQr" type="button">刷新二维码</button>
+                            </div>
+                            <p id="mobileAddressHint" class="mobile-address-hint"></p>
+                        </div>
                     </div>
                     <div class="upload-section">
                         <p class="sub-hint">或直接在此处上传：</p>
@@ -110,6 +118,48 @@ include '_header.php';
     font-size: 12px;
     margin: 0;
 }
+.mobile-address-setting {
+    margin-top: 14px;
+    text-align: left;
+}
+.mobile-address-setting label {
+    display: block;
+    margin-bottom: 6px;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+}
+.mobile-address-row {
+    display: flex;
+    gap: 6px;
+}
+.mobile-address-row input {
+    min-width: 0;
+    flex: 1;
+    padding: 7px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 11px;
+}
+.mobile-address-row button {
+    flex: 0 0 auto;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: #4f46e5;
+    color: #fff;
+    cursor: pointer;
+    font-size: 11px;
+}
+.mobile-address-hint {
+    min-height: 32px;
+    margin: 6px 0 0;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.45;
+}
+.mobile-address-hint.warning { color: #c2410c; }
+.mobile-address-hint.success { color: #047857; }
 .upload-section {
     flex: 1;
     min-width: 300px;
@@ -324,9 +374,16 @@ include '_header.php';
 }
 </style>
 
+<script src="../static/vendor/qrcode.js" onload="window.dispatchEvent(new Event('office-qrcode-ready'))" onerror="this.onerror=null;this.src='https://unpkg.com/qrcode@1.5.4/build/qrcode.js'"></script>
 <script>
 let frontImage = null;
 let backImage = null;
+const uploadSessionBytes = new Uint8Array(16);
+window.crypto.getRandomValues(uploadSessionBytes);
+const uploadSession = Array.from(uploadSessionBytes, function(byte) {
+    return byte.toString(16).padStart(2, '0');
+}).join('');
+const mobileAddressStorageKey = 'office-tools-idcard-mobile-origin';
 
 function $(id) { return document.getElementById(id); }
 
@@ -675,24 +732,82 @@ function printPage() {
 }
 
 // 生成二维码（指向手机上传页面）
-function generateQRCode() {
-    const url = window.location.href.replace('idcard-print', 'idcard-mobile');
-    const qrEl = $('qrImg');
-    qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=10&data=' + encodeURIComponent(url);
-    qrEl.onerror = function() {
-        qrEl.style.display = 'none';
-        const parent = qrEl.parentNode;
-        const fallback = document.createElement('div');
-        fallback.style.cssText = 'font-size:12px;color:#94a3b8;text-align:center;';
-        fallback.textContent = '二维码生成中...';
-        parent.appendChild(fallback);
-    };
+function isLoopbackHost(hostname) {
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname === '::1' || hostname === '[::1]';
 }
 
+function updateMobileAddressHint(origin) {
+    const hint = $('mobileAddressHint');
+    let parsed;
+    try { parsed = new URL(origin); } catch (error) { parsed = null; }
+    if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+        hint.className = 'mobile-address-hint warning';
+        hint.textContent = '请输入以 http:// 或 https:// 开头的完整地址';
+        return false;
+    }
+    if (isLoopbackHost(parsed.hostname)) {
+        hint.className = 'mobile-address-hint warning';
+        hint.textContent = 'localhost 只能本机访问，请改成电脑局域网 IP 后刷新二维码';
+    } else {
+        hint.className = 'mobile-address-hint success';
+        hint.textContent = '请确认手机和电脑连接同一网络';
+    }
+    return true;
+}
+
+async function generateQRCode() {
+    const configuredOrigin = $('mobileBaseUrl').value.trim();
+    if (!updateMobileAddressHint(configuredOrigin)) return;
+    const baseUrl = new URL(configuredOrigin);
+    localStorage.setItem(mobileAddressStorageKey, baseUrl.origin);
+    const mobileUrl = new URL(window.location.href);
+    mobileUrl.protocol = baseUrl.protocol;
+    mobileUrl.host = baseUrl.host;
+    mobileUrl.pathname = mobileUrl.pathname.replace('idcard-print', 'idcard-mobile');
+    mobileUrl.search = '';
+    mobileUrl.hash = '';
+    mobileUrl.searchParams.set('session', uploadSession);
+    const url = mobileUrl.toString();
+    const qrEl = $('qrImg');
+    function showError() {
+        qrEl.style.display = 'none';
+        const parent = qrEl.parentNode;
+        let fallback = document.getElementById('qrLoadError');
+        if (fallback) return;
+        fallback = document.createElement('div');
+        fallback.id = 'qrLoadError';
+        fallback.style.cssText = 'font-size:12px;color:#94a3b8;text-align:center;';
+        fallback.textContent = '二维码生成失败，请刷新页面';
+        parent.appendChild(fallback);
+    }
+    if (!window.QRCode) return showError();
+    try {
+        qrEl.src = await window.QRCode.toDataURL(url, {
+            width: 200,
+            margin: 1,
+            errorCorrectionLevel: 'M'
+        });
+        qrEl.style.display = '';
+        const loadError = document.getElementById('qrLoadError');
+        if (loadError) loadError.remove();
+    } catch (error) {
+        showError();
+    }
+}
+
+const savedMobileOrigin = localStorage.getItem(mobileAddressStorageKey);
+const currentOriginIsLoopback = isLoopbackHost(window.location.hostname);
+$('mobileBaseUrl').value = currentOriginIsLoopback && savedMobileOrigin ? savedMobileOrigin : window.location.origin;
+$('mobileBaseUrl').addEventListener('input', function() {
+    updateMobileAddressHint(this.value.trim());
+});
+$('refreshQr').addEventListener('click', generateQRCode);
+window.addEventListener('office-qrcode-ready', generateQRCode);
+
 // 轮询同步手机上传的照片
-let lastSyncTime = Math.floor(Date.now() / 1000);
 let syncInterval = null;
 let syncStatus = null;
+let syncInFlight = false;
 
 function startSync() {
     if (syncInterval) clearInterval(syncInterval);
@@ -725,10 +840,12 @@ function showSyncStatus(message, type) {
 }
 
 async function checkNewFiles() {
+    if (syncInFlight) return;
+    syncInFlight = true;
     try {
         // 添加时间戳参数防止缓存
         const ts = Date.now();
-        const response = await fetch('../api/upload.php?action=list&_=' + ts);
+        const response = await fetch('../api/upload.php?action=list&session=' + encodeURIComponent(uploadSession) + '&_=' + ts);
         if (!response.ok) {
             throw new Error('HTTP ' + response.status);
         }
@@ -737,14 +854,12 @@ async function checkNewFiles() {
             throw new Error(result.error || 'API错误');
         }
         
-        const newFiles = result.files.filter(function(f) { return f.timestamp > lastSyncTime; });
+        const newFiles = result.files;
         if (newFiles.length > 0) {
-            lastSyncTime = Math.max.apply(null, newFiles.map(function(f) { return f.timestamp; }));
-            
             for (let i = 0; i < newFiles.length; i++) {
                 const file = newFiles[i];
                 try {
-                    const imgResponse = await fetch('../api/upload.php?action=get&filename=' + encodeURIComponent(file.filename) + '&_=' + ts);
+                    const imgResponse = await fetch('../api/upload.php?action=get&session=' + encodeURIComponent(uploadSession) + '&filename=' + encodeURIComponent(file.filename) + '&_=' + ts);
                     if (!imgResponse.ok) continue;
                     const imgResult = await imgResponse.json();
                     if (imgResult.ok && imgResult.data) {
@@ -753,10 +868,7 @@ async function checkNewFiles() {
                         const src = 'data:' + mimeType + ';base64,' + imgResult.data;
                         
                         // 标记是正面还是反面
-                        let type = 'front';
-                        if (frontImage && !backImage) {
-                            type = 'back';
-                        }
+                        const type = file.type === 'back' ? 'back' : 'front';
                         
                         // 添加缩略图并立即标记类型
                         const thumb = addThumbWithType(src, type);
@@ -769,8 +881,15 @@ async function checkNewFiles() {
                             showSyncStatus('✅ 已收到反面照片', 'success');
                         }
                         
-                        // 删除服务器上的文件（已同步）
-                        fetch('../api/upload.php?action=delete&filename=' + encodeURIComponent(file.filename)).catch(function(){});
+                        // 删除服务器上的文件（已同步）；删除操作使用 POST，避免链接预加载误删。
+                        const deleteData = new FormData();
+                        deleteData.append('filename', file.filename);
+                        deleteData.append('session', uploadSession);
+                        fetch('../api/upload.php?action=delete', {
+                            method: 'POST',
+                            body: deleteData,
+                            cache: 'no-store'
+                        }).catch(function(){});
                     }
                 } catch (err) {
                     console.log('下载照片失败:', err);
@@ -779,6 +898,8 @@ async function checkNewFiles() {
         }
     } catch (err) {
         console.log('同步检查失败:', err);
+    } finally {
+        syncInFlight = false;
     }
 }
 

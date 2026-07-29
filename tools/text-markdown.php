@@ -24,6 +24,7 @@ include '_header.php';
             .preview-area em { color:#475569; }
             .preview-area a { color:#6366f1; text-decoration:none; }
             .preview-area a:hover { text-decoration:underline; }
+            .preview-area .blocked-link { color:#b91c1c; text-decoration:line-through; cursor:not-allowed; }
             .preview-area code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-family:"Courier New",monospace; font-size:13px; color:#be185d; }
             .preview-area pre { background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:8px; overflow-x:auto; margin:10px 0; font-family:"Courier New",monospace; font-size:13px; line-height:1.6; }
             .preview-area pre code { background:transparent; color:inherit; padding:0; }
@@ -35,18 +36,47 @@ include '_header.php';
                 const preview = document.getElementById('md-preview');
 
                 function escapeHtml(s) {
-                    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    return s.replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#39;');
                 }
 
-                function parseInline(text) {
+                function formatInlineText(text) {
                     text = escapeHtml(text);
                     text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
                     text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
                     text = text.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
                     text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
                     text = text.replace(/(^|[^_])_([^_]+)_/g, '$1<em>$2</em>');
-                    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
                     return text;
+                }
+
+                function safeMarkdownUrl(url) {
+                    const candidate = url.trim();
+                    const compact = candidate.replace(/[\u0000-\u0020]/g, '');
+                    const scheme = compact.match(/^([a-z][a-z0-9+.-]*):/i);
+                    if (scheme && !/^(https?|mailto|tel):$/i.test(scheme[0])) return null;
+                    return candidate;
+                }
+
+                function parseInline(text) {
+                    const links = [];
+                    text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(match, label, url) {
+                        const index = links.push({ label: label, url: url }) - 1;
+                        return '\uE000' + index + '\uE001';
+                    });
+                    let rendered = formatInlineText(text);
+                    rendered = rendered.replace(/\uE000(\d+)\uE001/g, function(match, index) {
+                        const link = links[Number(index)];
+                        if (!link) return '';
+                        const label = formatInlineText(link.label);
+                        const safeUrl = safeMarkdownUrl(link.url);
+                        if (!safeUrl) return '<span class="blocked-link" title="已阻止不安全链接">' + label + '</span>';
+                        return '<a href="' + escapeHtml(safeUrl) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>';
+                    });
+                    return rendered;
                 }
 
                 function render(md) {

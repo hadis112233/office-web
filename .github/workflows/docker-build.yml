@@ -3,10 +3,52 @@ name: Build and Publish Docker Image
 on:
   push:
     branches: [main, master]
+  pull_request:
+    branches: [main, master]
   workflow_dispatch:
 
+concurrency:
+  group: office-web-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  quality:
+    name: Syntax and project checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Lint PHP
+        run: find . -type f -name '*.php' -not -path './data/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Check JavaScript and project links
+        run: node scripts/check-project.mjs
+
+  docker-check:
+    name: Docker build check
+    if: github.event_name == 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build without publishing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+
   build:
+    if: github.event_name != 'pull_request'
+    needs: quality
     runs-on: ubuntu-latest
     permissions:
       contents: read

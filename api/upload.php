@@ -1,88 +1,146 @@
 <?php
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
 
-$action = $_GET['action'] ?? '';
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const IMAGE_TTL = 30 * 60;
 
-// 使用绝对路径（基于api目录自身位置），确保可靠
-$uploadDir = __DIR__ . '/../data/uploads/';
-if (!file_exists($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
+function respond($data, $status = 200) {
+    http_response_code($status);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
 }
 
-// 清理过期文件（超过30分钟的）- 扫描所有扩展名
-$expireTime = time() - 30 * 60;
-foreach (glob($uploadDir . '*.{jpg,jpeg,png}', GLOB_BRACE) as $file) {
-    if (filemtime($file) < $expireTime) {
-        @unlink($file);
+function validSession($session) {
+    return is_string($session) && preg_match('/^[a-f0-9]{32}$/', $session);
+}
+
+function validFilename($filename) {
+    return is_string($filename) && preg_match('/^(front|back)-[a-f0-9]{32}\.(jpg|png)$/', $filename);
+}
+
+function imageType($filename) {
+    return preg_match('/^(front|back)-/', $filename, $matches) ? $matches[1] : null;
+}
+
+$action = $_GET['action'] ?? '';
+$session = $_POST['session'] ?? $_GET['session'] ?? '';
+if (!validSession($session)) {
+    respond(['ok' => false, 'error' => '上传配对码无效，请重新扫描电脑上的二维码'], 400);
+}
+
+$uploadRoot = __DIR__ . '/../data/uploads/';
+if (!is_dir($uploadRoot) && !@mkdir($uploadRoot, 0775, true)) {
+    respond(['ok' => false, 'error' => '图片存储目录创建失败'], 500);
+}
+
+$lockHandle = @fopen($uploadRoot . '.upload.lock', 'c');
+if (!$lockHandle || !@flock($lockHandle, LOCK_EX)) {
+    respond(['ok' => false, 'error' => '图片服务正忙，请稍后重试'], 503);
+}
+register_shutdown_function(function () use ($lockHandle) {
+    @flock($lockHandle, LOCK_UN);
+    @fclose($lockHandle);
+});
+
+$expireBefore = time() - IMAGE_TTL;
+foreach (glob($uploadRoot . '*') ?: [] as $sessionPath) {
+    if (is_file($sessionPath)
+        && preg_match('/^[a-f0-9]{13,32}\.(jpg|jpeg|png)$/', basename($sessionPath))
+        && @filemtime($sessionPath) < $expireBefore) {
+        @unlink($sessionPath);
+        continue;
     }
+    if (!is_dir($sessionPath) || !validSession(basename($sessionPath))) continue;
+    foreach (glob($sessionPath . '/*') ?: [] as $path) {
+        if (is_file($path) && validFilename(basename($path)) && @filemtime($path) < $expireBefore) {
+            @unlink($path);
+        }
+    }
+    if (!(glob($sessionPath . '/*') ?: [])) {
+        @rmdir($sessionPath);
+    }
+}
+
+$uploadDir = $uploadRoot . $session . '/';
+if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0775, true)) {
+    respond(['ok' => false, 'error' => '本次上传目录创建失败'], 500);
 }
 
 if ($action === 'upload') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        respond(['ok' => false, 'error' => '上传仅支持 POST 请求'], 405);
+    }
     if (!isset($_FILES['file'])) {
-        echo json_encode(['ok' => false, 'error' => '没有上传文件']);
-        exit;
+        respond(['ok' => false, 'error' => '没有收到图片'], 400);
     }
     $file = $_FILES['file'];
-    if ($file['error'] !== UPLOAD_ERR_OK) {
-        echo json_encode(['ok' => false, 'error' => '上传失败']);
-        exit;
+    if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+        respond(['ok' => false, 'error' => '图片上传失败'], 400);
     }
-    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-    if (!in_array(strtolower($ext), ['jpg', 'jpeg', 'png'])) {
-        echo json_encode(['ok' => false, 'error' => '只支持JPG/PNG格式']);
-        exit;
+    if ($file['size'] <= 0 || $file['size'] > MAX_IMAGE_BYTES) {
+        respond(['ok' => false, 'error' => '图片大小需在 12 MB 以内'], 400);
     }
-    $filename = uniqid() . '.' . $ext;
-    $savePath = $uploadDir . $filename;
-    if (move_uploaded_file($file['tmp_name'], $savePath)) {
-        echo json_encode(['ok' => true, 'filename' => $filename]);
-    } else {
-        echo json_encode(['ok' => false, 'error' => '保存失败']);
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($file['tmp_name']);
+    $extensionMap = ['image/jpeg' => 'jpg', 'image/png' => 'png'];
+    if (!isset($extensionMap[$mime])) {
+        respond(['ok' => false, 'error' => '仅支持真实的 JPG 或 PNG 图片'], 415);
     }
-    exit;
-} elseif ($action === 'list') {
-    $files = glob($uploadDir . '*.{jpg,jpeg,png}', GLOB_BRACE);
-    $result = [];
-    foreach ($files as $file) {
-        $filename = basename($file);
-        $result[] = [
-            'filename' => $filename,
-            'timestamp' => filemtime($file),
-            'url' => 'data/uploads/' . $filename
-        ];
+
+    $type = $_POST['type'] ?? '';
+    if (!in_array($type, ['front', 'back'], true)) {
+        respond(['ok' => false, 'error' => '请标明身份证正面或反面'], 400);
     }
-    usort($result, function($a, $b) { return $b['timestamp'] - $a['timestamp']; });
-    echo json_encode(['ok' => true, 'files' => $result]);
-    exit;
-} elseif ($action === 'get') {
-    $filename = $_GET['filename'] ?? '';
-    if (!preg_match('/^[a-f0-9]+\.(jpg|jpeg|png)$/', $filename)) {
-        echo json_encode(['ok' => false, 'error' => '无效文件名']);
-        exit;
+    $filename = $type . '-' . bin2hex(random_bytes(16)) . '.' . $extensionMap[$mime];
+    if (!@move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
+        respond(['ok' => false, 'error' => '图片保存失败'], 500);
     }
-    $filePath = $uploadDir . $filename;
-    if (!file_exists($filePath)) {
-        echo json_encode(['ok' => false, 'error' => '文件不存在']);
-        exit;
-    }
-    $data = base64_encode(file_get_contents($filePath));
-    echo json_encode(['ok' => true, 'data' => $data]);
-    exit;
-} elseif ($action === 'delete') {
-    $filename = $_GET['filename'] ?? '';
-    if (!preg_match('/^[a-f0-9]+\.(jpg|jpeg|png)$/', $filename)) {
-        echo json_encode(['ok' => false, 'error' => '无效文件名']);
-        exit;
-    }
-    $filePath = $uploadDir . $filename;
-    if (file_exists($filePath)) {
-        unlink($filePath);
-        echo json_encode(['ok' => true]);
-    } else {
-        echo json_encode(['ok' => false, 'error' => '文件不存在']);
-    }
-    exit;
+    respond(['ok' => true, 'filename' => $filename, 'type' => $type]);
 }
 
-echo json_encode(['ok' => false, 'error' => '未知操作']);
-?>
+if ($action === 'list') {
+    $files = [];
+    foreach (glob($uploadDir . '*') ?: [] as $path) {
+        $filename = basename($path);
+        if (!is_file($path) || !validFilename($filename)) continue;
+        $files[] = ['filename' => $filename, 'type' => imageType($filename), 'timestamp' => @filemtime($path) ?: 0];
+    }
+    usort($files, fn($a, $b) => $b['timestamp'] <=> $a['timestamp']);
+    respond(['ok' => true, 'files' => $files]);
+}
+
+if ($action === 'get') {
+    $filename = $_GET['filename'] ?? '';
+    if (!validFilename($filename)) {
+        respond(['ok' => false, 'error' => '无效文件名'], 400);
+    }
+    $filePath = $uploadDir . $filename;
+    if (!is_file($filePath)) {
+        respond(['ok' => false, 'error' => '图片不存在或已过期'], 404);
+    }
+    $data = @file_get_contents($filePath);
+    if ($data === false) {
+        respond(['ok' => false, 'error' => '图片读取失败'], 500);
+    }
+    respond(['ok' => true, 'data' => base64_encode($data)]);
+}
+
+if ($action === 'delete') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        respond(['ok' => false, 'error' => '删除仅支持 POST 请求'], 405);
+    }
+    $filename = $_POST['filename'] ?? '';
+    if (!validFilename($filename)) {
+        respond(['ok' => false, 'error' => '无效文件名'], 400);
+    }
+    $filePath = $uploadDir . $filename;
+    if (is_file($filePath) && !@unlink($filePath)) {
+        respond(['ok' => false, 'error' => '图片删除失败'], 500);
+    }
+    respond(['ok' => true]);
+}
+
+respond(['ok' => false, 'error' => '未知操作'], 404);

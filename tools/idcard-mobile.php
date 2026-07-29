@@ -245,8 +245,16 @@
     <script>
     let frontFile = null;
     let backFile = null;
+    const uploadSession = new URLSearchParams(window.location.search).get('session') || '';
+    const sessionValid = /^[a-f0-9]{32}$/.test(uploadSession);
 
     function $(id) { return document.getElementById(id); }
+
+    if (!sessionValid) {
+        $('status').hidden = false;
+        $('status').className = 'status error';
+        $('status').textContent = '配对码无效或已丢失，请重新扫描电脑页面上的二维码';
+    }
 
     $('frontInput').addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -278,7 +286,7 @@
     }
 
     function checkReady() {
-        $('uploadBtn').disabled = !frontFile;
+        $('uploadBtn').disabled = !sessionValid || !frontFile;
     }
 
     $('clearBtn').addEventListener('click', function() {
@@ -291,7 +299,13 @@
         $('frontInput').value = '';
         $('backInput').value = '';
         checkReady();
-        $('status').hidden = true;
+        if (sessionValid) {
+            $('status').hidden = true;
+        } else {
+            $('status').hidden = false;
+            $('status').className = 'status error';
+            $('status').textContent = '配对码无效或已丢失，请重新扫描电脑页面上的二维码';
+        }
     });
 
     $('uploadBtn').addEventListener('click', async function() {
@@ -350,9 +364,12 @@
     });
 
     async function uploadFile(file, type) {
+        if (!file || file.size <= 0) throw new Error('请选择有效图片');
+        if (file.size > 12 * 1024 * 1024) throw new Error('单张图片不能超过 12 MB');
         const formData = new FormData();
         formData.append('file', file);
         formData.append('type', type);
+        formData.append('session', uploadSession);
         // 加时间戳防止微信浏览器缓存
         formData.append('_ts', Date.now());
 

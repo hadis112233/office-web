@@ -17,12 +17,12 @@ include '_header.php';
                 <p class="tip" id="info"></p>
             </div>
             <div class="tool-panel">
-                <label>功能演示模式（无 CDN 时）</label>
+                <label>组件状态</label>
                 <div style="padding:10px;border:1px dashed #ccc;border-radius:6px;background:#fafafa;min-height:60px;">
-                    分割功能需要联网加载 <code>pdf-lib</code>。若未加载，界面可预览。
+                    PDF 处理组件已随系统本地部署，局域网断网环境也可使用。
                 </div>
             </div>
-            <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js" onerror="document.getElementById('info').textContent='⚠ CDN 加载失败，当前为演示模式'"></script>
+            <script src="../static/vendor/pdf-lib.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';document.getElementById('info').textContent='本地组件不可用，正在尝试网络备用组件…'"></script>
             <script>
             const $ = id => document.getElementById(id);
             let resultBlob = null;
@@ -44,13 +44,13 @@ include '_header.php';
                         $('info').textContent = '解析失败：' + err.message;
                     }
                 } else {
-                    $('info').textContent = '已选择：' + f.name + '（库未加载，演示模式）';
+                    $('info').textContent = '已选择：' + f.name + '（PDF 组件暂未加载）';
                 }
             });
 
             async function doSplit() {
                 if (!currentFile) return alert('请先选择 PDF');
-                if (!window.PDFLib) return alert('pdf-lib 未加载，请检查网络后刷新');
+                if (!window.PDFLib) return alert('PDF 组件未加载，请刷新页面或联系管理员');
                 const start = parseInt($('startPage').value);
                 const end = parseInt($('endPage').value);
                 if (!start || !end || start > end || start < 1) return alert('页码输入错误');
