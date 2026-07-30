@@ -43,6 +43,9 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 <a href="#section-common" class="nav-item active" data-target="section-common">
                     <span class="nav-icon">⭐</span><span>常用</span>
                 </a>
+                <a href="#section-office" class="nav-item" data-target="section-office">
+                    <span class="nav-icon">🧰</span><span>办公辅助</span>
+                </a>
                 <a href="#section-pdf" class="nav-item" data-target="section-pdf">
                     <span class="nav-icon">📄</span><span>PDF</span>
                 </a>
@@ -146,6 +149,32 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-desc">全屏切换色卡，辅助检查显示异常</div>
                     </a>
 
+                </div>
+            </section>
+
+            <section class="tool-section" id="section-office">
+                <h2 class="section-title">🧰 办公辅助</h2>
+                <div class="tool-grid">
+                    <a class="tool-card" href="tools/date-calculator.php">
+                        <div class="tool-icon">📆</div>
+                        <div class="tool-name">日期计算器</div>
+                        <div class="tool-desc">计算日期间隔、工作日和到期日期</div>
+                    </a>
+                    <a class="tool-card" href="tools/unit-converter.php">
+                        <div class="tool-icon">📏</div>
+                        <div class="tool-name">单位换算</div>
+                        <div class="tool-desc">长度、重量、面积、温度和容量换算</div>
+                    </a>
+                    <a class="tool-card" href="tools/percentage-calculator.php">
+                        <div class="tool-icon">％</div>
+                        <div class="tool-name">百分比计算</div>
+                        <div class="tool-desc">占比、增减比例和涨跌幅计算</div>
+                    </a>
+                    <a class="tool-card" href="tools/text-diff.php">
+                        <div class="tool-icon">↔️</div>
+                        <div class="tool-name">文本对比</div>
+                        <div class="tool-desc">逐行找出两段文本的增删差异</div>
+                    </a>
                 </div>
             </section>
 

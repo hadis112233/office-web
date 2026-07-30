@@ -69,6 +69,19 @@ while ((linkMatch = toolLinkPattern.exec(homepage)) !== null) {
   if (!fs.existsSync(path.join(root, relative))) errors.push(`index.php：工具入口不存在：${relative}`);
 }
 
+const officeTools = new Map([
+  ['tools/date-calculator.php', ['工作日', 'offsetMode', '数据仅在浏览器中处理']],
+  ['tools/unit-converter.php', ['temperature', 'storage', '交换单位']],
+  ['tools/percentage-calculator.php', ['涨跌幅', 'changeRate', '不能除以 0']],
+  ['tools/text-diff.php', ['compareLines', 'replaceChildren', '不会上传服务器']],
+]);
+for (const [relative, markers] of officeTools) {
+  const source = fs.readFileSync(path.join(root, relative), 'utf8');
+  for (const marker of markers) {
+    if (!source.includes(marker)) errors.push(`${relative}：办公辅助功能缺少 ${marker}`);
+  }
+}
+
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
 const requiredPdfAssets = [
   'static/vendor/pdf.min.js',
