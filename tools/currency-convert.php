@@ -74,19 +74,13 @@ include '_header.php';
                 <div class="rate-table">
                     <div class="rate-row header">
                         <div>货币</div>
-                        <div>汇率</div>
-                        <div>100 CNY = ?</div>
+                        <div>1 CNY 可兑换</div>
+                        <div>1 单位折合 CNY</div>
                     </div>
-                    <div class="rate-row"><div>🇺🇸 USD</div><div>7.2450</div><div>13.80</div></div>
-                    <div class="rate-row"><div>🇪🇺 EUR</div><div>7.8650</div><div>12.71</div></div>
-                    <div class="rate-row"><div>🇬🇧 GBP</div><div>9.1230</div><div>10.96</div></div>
-                    <div class="rate-row"><div>🇯🇵 JPY</div><div>0.0485</div><div>2061.86</div></div>
-                    <div class="rate-row"><div>🇰🇷 KRW</div><div>0.0053</div><div>18867.92</div></div>
-                    <div class="rate-row"><div>🇦🇺 AUD</div><div>4.6850</div><div>21.34</div></div>
-                    <div class="rate-row"><div>🇨🇦 CAD</div><div>5.1800</div><div>19.31</div></div>
-                    <div class="rate-row"><div>🇭🇰 HKD</div><div>0.9230</div><div>108.34</div></div>
+                    <div id="rateRows"></div>
                 </div>
-                <p class="rate-note">* 汇率仅供参考，实际汇率以银行实时报价为准</p>
+                <p class="rate-note" id="rateStatus" role="status" aria-live="polite">正在读取本机汇率缓存…</p>
+                <p class="rate-note">参考汇率不等于银行、信用卡或现金兑换成交价。</p>
             </div>
             <style>
             .currency-header {
@@ -176,31 +170,61 @@ include '_header.php';
                 text-align: center;
                 margin: 0;
             }
+            #rateStatus { margin-bottom: 6px; font-weight: 600; }
+            #rateStatus.live { color: #047857; }
+            #rateStatus.warning { color: #b45309; }
             </style>
             <script>
-            const exchangeRates = {
+            let exchangeRates = {
                 CNY: 1,
-                USD: 0.1380,
-                EUR: 0.1271,
-                GBP: 0.1096,
-                JPY: 20.6186,
-                KRW: 188.6792,
-                AUD: 0.2134,
-                CAD: 0.1931,
-                CHF: 0.1415,
-                HKD: 1.0834,
-                SGD: 0.1825,
-                THB: 4.8520,
-                MYR: 0.6420,
-                INR: 11.9800,
-                RUB: 12.3500,
-                BRL: 0.6850,
-                MXN: 2.4800,
-                ZAR: 2.5850,
-                AED: 0.5070,
-                TRY: 2.1500
+                USD: 0.14779,
+                EUR: 0.12974,
+                GBP: 0.11105,
+                JPY: 24.215,
+                KRW: 216.11,
+                AUD: 0.21187,
+                CAD: 0.20845,
+                CHF: 0.12079,
+                HKD: 1.16,
+                SGD: 0.19097,
+                THB: 4.9659,
+                MYR: 0.60415,
+                INR: 14.1712,
+                RUB: 11.5711,
+                BRL: 0.75487,
+                MXN: 2.5805,
+                ZAR: 2.4749,
+                AED: 0.54277,
+                TRY: 6.9986
             };
+            const supportedCurrencies = Object.keys(exchangeRates);
+            const popularCurrencies = [
+                ['USD', '🇺🇸'], ['EUR', '🇪🇺'], ['GBP', '🇬🇧'], ['JPY', '🇯🇵'],
+                ['KRW', '🇰🇷'], ['AUD', '🇦🇺'], ['CAD', '🇨🇦'], ['HKD', '🇭🇰']
+            ];
             function $(id) { return document.getElementById(id); }
+            function formatRate(value) {
+                if (value >= 100) return value.toFixed(2);
+                if (value >= 1) return value.toFixed(4).replace(/\.?0+$/, '');
+                return value.toFixed(6).replace(/\.?0+$/, '');
+            }
+            function renderRateTable() {
+                const rows = $('rateRows');
+                rows.innerHTML = '';
+                popularCurrencies.forEach(function(item) {
+                    const code = item[0];
+                    const rate = exchangeRates[code];
+                    if (!Number.isFinite(rate) || rate <= 0) return;
+                    const row = document.createElement('div');
+                    row.className = 'rate-row';
+                    [item[1] + ' ' + code, formatRate(rate), formatRate(1 / rate)].forEach(function(value) {
+                        const cell = document.createElement('div');
+                        cell.textContent = value;
+                        row.appendChild(cell);
+                    });
+                    rows.appendChild(row);
+                });
+            }
             function convertCurrency() {
                 const from = $('fromCurrency').value;
                 const to = $('toCurrency').value;
@@ -229,6 +253,39 @@ include '_header.php';
                 $('toCurrency').value = 'CNY';
                 convertCurrency();
             }
+            async function loadExchangeRates() {
+                const status = $('rateStatus');
+                const controller = new AbortController();
+                const timeout = setTimeout(function() { controller.abort(); }, 10000);
+                try {
+                    const response = await fetch('../api/exchange.php', { cache: 'no-store', signal: controller.signal });
+                    const data = await response.json();
+                    if (!response.ok || !data.ok || !data.rates) throw new Error(data.error || '汇率服务不可用');
+                    const nextRates = {};
+                    supportedCurrencies.forEach(function(code) {
+                        const rate = Number(data.rates[code]);
+                        if (Number.isFinite(rate) && rate > 0) nextRates[code] = rate;
+                    });
+                    if (Object.keys(nextRates).length !== supportedCurrencies.length || nextRates.CNY !== 1) throw new Error('汇率数据不完整');
+                    exchangeRates = nextRates;
+                    status.className = 'rate-note ' + (data.stale ? 'warning' : 'live');
+                    status.textContent = data.stale
+                        ? '当前断网，使用 ' + data.date + ' 的本机缓存'
+                        : '参考汇率日期：' + data.date + (data.cached ? '（本机缓存）' : '（已更新）');
+                } catch (error) {
+                    status.className = 'rate-note warning';
+                    status.textContent = '无法获取在线或缓存汇率，当前使用 2026-07-29 内置参考值';
+                } finally {
+                    clearTimeout(timeout);
+                    renderRateTable();
+                    convertCurrency();
+                }
+            }
+            ['amount', 'fromCurrency', 'toCurrency'].forEach(function(id) {
+                $(id).addEventListener(id === 'amount' ? 'input' : 'change', convertCurrency);
+            });
+            renderRateTable();
             convertCurrency();
+            loadExchangeRates();
             </script>
 <?php include '_footer.php'; ?>

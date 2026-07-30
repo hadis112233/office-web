@@ -1,0 +1,20 @@
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+
+    # 文件名或链接版本变化后会自动刷新，因此可安全地长时间缓存静态资源。
+    <FilesMatch "\.(?:css|js|jpg|jpeg|png|webp|gif|svg|ico|woff2?)$">
+        Header set Cache-Control "public, max-age=604800, immutable"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/jpeg "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/webp "access plus 30 days"
+</IfModule>

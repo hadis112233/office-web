@@ -20,8 +20,8 @@ include '_header.php';
                 <label>预览（第 <span id="curPage">0</span> / <span id="totalPage">0</span> 页）</label>
                 <div id="preview" style="text-align:center;padding:10px;min-height:120px;border:1px dashed #ccc;border-radius:6px;">（进度将在此显示）</div>
             </div>
-            <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js" onerror="onCdnFail()"></script>
-            <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+            <script src="../static/vendor/pdf.min.js" onload="window.OFFICE_PDF_WORKER='../static/vendor/pdf.worker.min.js'" onerror="this.onerror=null;this.onload=function(){window.OFFICE_PDF_WORKER='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js'};this.src='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js';document.getElementById('info').textContent='本地组件不可用，正在尝试网络备用组件…'"></script>
+            <script src="../static/vendor/jspdf.umd.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js'"></script>
             <script>
             const $ = id => document.getElementById(id);
             let resultBlob = null;
@@ -41,10 +41,6 @@ include '_header.php';
                 $('totalPage').textContent = '0';
             });
 
-            function onCdnFail() {
-                $('info').textContent = '⚠ CDN 加载失败，当前为演示模式';
-            }
-
             async function doCompress() {
                 if (!currentFile) return alert('请先选择 PDF');
                 if (!window['pdfjs-dist/build/pdf']) {
@@ -53,10 +49,10 @@ include '_header.php';
                     pdfjsLib = window['pdfjs-dist/build/pdf'] || window['pdfjsLib'];
                 }
                 pdfjsLib = pdfjsLib || window.pdfjsLib;
-                if (!pdfjsLib) return alert('PDF.js 未加载，请检查网络');
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+                if (!pdfjsLib) return alert('PDF 组件未加载，请刷新页面或联系管理员');
+                pdfjsLib.GlobalWorkerOptions.workerSrc = window.OFFICE_PDF_WORKER || '../static/vendor/pdf.worker.min.js';
                 const jspdf = window.jspdf && window.jspdf.jsPDF;
-                if (!jspdf) return alert('jsPDF 未加载');
+                if (!jspdf) return alert('PDF 导出组件未加载，请刷新页面或联系管理员');
 
                 const dpi = parseFloat($('dpi').value);
                 const quality = parseFloat($('quality').value);

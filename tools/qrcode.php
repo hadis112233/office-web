@@ -25,16 +25,32 @@ include '_header.php';
                 <div id="qrBox" style="text-align:center;padding:20px;min-height:320px;display:flex;align-items:center;justify-content:center;">
                     <span style="color:#999;">请输入内容并点击生成</span>
                 </div>
-                <p class="tip">提示：可右键图片另存为，或点击"下载图片"按钮下载。</p>
+                <p class="tip">二维码在当前浏览器本地生成，输入内容不会上传到服务器或第三方网站。</p>
             </div>
+            <script src="../static/vendor/qrcode.js" onerror="this.onerror=null;this.src='https://unpkg.com/qrcode@1.5.4/build/qrcode.js'"></script>
             <script>
             function $(id) { return document.getElementById(id); }
-            function generate() {
+            async function generate() {
                 const text = $('text').value.trim();
                 if (!text) return alert('请输入内容');
-                const size = $('size').value;
-                const url = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + '&data=' + encodeURIComponent(text);
-                $('qrBox').innerHTML = '<img id="qrImg" src="' + url + '" alt="二维码" style="max-width:100%;" />';
+                if (!window.QRCode) return alert('二维码组件未加载，请刷新页面或联系管理员');
+                const size = parseInt($('size').value, 10);
+                $('qrBox').textContent = '正在生成二维码…';
+                try {
+                    const dataUrl = await window.QRCode.toDataURL(text, {
+                        width: size,
+                        margin: 2,
+                        errorCorrectionLevel: 'M'
+                    });
+                    const img = document.createElement('img');
+                    img.id = 'qrImg';
+                    img.src = dataUrl;
+                    img.alt = '二维码';
+                    img.style.maxWidth = '100%';
+                    $('qrBox').replaceChildren(img);
+                } catch (error) {
+                    $('qrBox').textContent = '生成失败，请缩短内容后重试';
+                }
             }
             function downloadQR() {
                 const img = document.getElementById('qrImg');

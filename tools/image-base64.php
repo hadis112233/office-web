@@ -5,7 +5,7 @@ include '_header.php';
 ?>
             <div class="tool-panel">
                 <label>① 上传图片 → 输出 Base64</label>
-                <input type="file" id="file" accept="image/*">
+                <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/avif">
                 <div class="btn-row">
                     <button class="btn" onclick="encodeImage()">生成 Base64</button>
                     <button class="btn secondary" onclick="copyB64()">复制结果</button>
@@ -27,10 +27,20 @@ include '_header.php';
             <script>
             let lastDataURL = null;
             const $ = id => document.getElementById(id);
+            const allowedImageTypes = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/bmp', 'image/avif']);
+            const maxDataUrlLength = 18 * 1024 * 1024;
+
+            function validImageDataUrl(value) {
+                if (!value || value.length > maxDataUrlLength) return false;
+                const match = value.match(/^data:(image\/(?:png|jpeg|gif|webp|bmp|avif));base64,([a-z0-9+/=\r\n]+)$/i);
+                return !!match && allowedImageTypes.has(match[1].toLowerCase());
+            }
 
             function encodeImage() {
                 const f = $('file').files[0];
                 if (!f) return alert('请先选择图片');
+                if (!allowedImageTypes.has(f.type)) return alert('仅支持 PNG、JPG、GIF、WebP、BMP 或 AVIF 图片');
+                if (f.size > 12 * 1024 * 1024) return alert('图片不能超过 12 MB');
                 const reader = new FileReader();
                 reader.onload = function(ev) {
                     lastDataURL = ev.target.result;
@@ -49,30 +59,32 @@ include '_header.php';
             function decodeB64() {
                 const s = ($('b64In').value || '').trim();
                 if (!s) return alert('请粘贴 Base64 字符串');
-                if (!s.startsWith('data:image/')) {
-                    alert('内容不是有效的 data:image/...;base64,... URI');
+                lastDataURL = null;
+                if (!validImageDataUrl(s)) {
+                    alert('仅支持 18 MB 以内的 PNG、JPG、GIF、WebP、BMP 或 AVIF Base64 图片');
                     return;
                 }
-                lastDataURL = s;
                 const p = $('preview');
-                p.innerHTML = '';
+                p.replaceChildren();
                 const img = document.createElement('img');
                 img.src = s;
                 img.style.maxWidth = '100%';
                 img.onload = function() {
+                    lastDataURL = s;
                     $('info').textContent = '已解析：' + img.width + ' × ' + img.height + ' px';
                 };
                 img.onerror = function() {
+                    lastDataURL = null;
                     alert('图片加载失败，内容可能不是有效的 Base64 图片数据');
                 };
                 p.appendChild(img);
             }
 
             function downloadFromB64() {
-                const s = lastDataURL || ($('b64In').value || '').trim();
-                if (!s || !s.startsWith('data:image/')) return alert('请先预览有效图片');
-                const m = s.match(/^data:image\/(\w+);/);
-                const ext = m ? (m[1] === 'jpeg' ? 'jpg' : m[1]) : 'png';
+                const s = lastDataURL;
+                if (!s || !validImageDataUrl(s)) return alert('请先预览有效图片');
+                const m = s.match(/^data:image\/([a-z0-9]+);/i);
+                const ext = m && m[1].toLowerCase() === 'jpeg' ? 'jpg' : m[1].toLowerCase();
                 const a = document.createElement('a');
                 a.href = s;
                 a.download = 'image.' + ext;

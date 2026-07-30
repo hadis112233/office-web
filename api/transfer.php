@@ -10,24 +10,36 @@ ob_start();
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
+header('X-Content-Type-Options: nosniff');
 date_default_timezone_set('Asia/Shanghai');
 
-function jsonOut($data) {
+function jsonOut($data, $status = 200) {
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    http_response_code($status);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
 $dir = __DIR__ . '/../data/transfer';
 $index_file = $dir . '/index.json';
 $max_size = 50 * 1024 * 1024;
-$ttl = 60;
+$ttl = 10 * 60;
 
 if (!is_dir($dir)) {
-    @mkdir($dir, 0777, true);
+    @mkdir($dir, 0775, true);
 }
+
+// 所有读写索引的请求串行化，避免并发上传时覆盖彼此的提取码记录。
+$lockHandle = @fopen($dir . '/.transfer.lock', 'c');
+if (!$lockHandle || !@flock($lockHandle, LOCK_EX)) {
+    jsonOut(['ok' => false, 'error' => '服务器正忙，请稍后重试']);
+}
+register_shutdown_function(function () use ($lockHandle) {
+    @flock($lockHandle, LOCK_UN);
+    @fclose($lockHandle);
+});
 
 function loadIndex($index_file) {
     if (!file_exists($index_file)) return [];
@@ -38,12 +50,21 @@ function loadIndex($index_file) {
 }
 
 function saveIndex($index_file, $data) {
-    $tmp = $index_file . '.tmp';
-    $ok = @file_put_contents($tmp, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-    if ($ok === false) {
-        return @file_put_contents($index_file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) !== false;
+    try {
+        $suffix = bin2hex(random_bytes(6));
+    } catch (Throwable $e) {
+        $suffix = str_replace('.', '', uniqid('', true));
     }
-    return @rename($tmp, $index_file);
+    $tmp = $index_file . '.tmp-' . $suffix;
+    $ok = @file_put_contents($tmp, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    if ($ok === false) return false;
+    if (@rename($tmp, $index_file)) return true;
+    @unlink($tmp);
+    return false;
+}
+
+function validStoredName($name) {
+    return is_string($name) && preg_match('/^\d{4,6}_[a-f0-9]{16}$/', $name);
 }
 
 function cleanExpired($dir, $index_file, $ttl) {
@@ -51,14 +72,55 @@ function cleanExpired($dir, $index_file, $ttl) {
     $index = loadIndex($index_file);
     $changed = false;
     foreach ($index as $code => $item) {
-        if ($now - $item['time'] > $ttl || !file_exists($dir . '/' . $item['file'])) {
-            @unlink($dir . '/' . $item['file']);
+        $valid = is_array($item)
+            && validStoredName($item['file'] ?? '')
+            && isset($item['time'])
+            && is_numeric($item['time']);
+        $filePath = $valid ? $dir . '/' . $item['file'] : '';
+        if (!$valid || $now - (int)$item['time'] > $ttl || !is_file($filePath)) {
+            if ($valid) @unlink($filePath);
             unset($index[$code]);
             $changed = true;
         }
     }
     if ($changed) saveIndex($index_file, $index);
+
+    $referenced = [];
+    foreach ($index as $item) {
+        if (validStoredName($item['file'] ?? '')) $referenced[$item['file']] = true;
+    }
+    foreach (glob($dir . '/*') ?: [] as $path) {
+        $name = basename($path);
+        if (is_file($path)
+            && validStoredName($name)
+            && !isset($referenced[$name])
+            && @filemtime($path) < $now - $ttl) {
+            @unlink($path);
+        }
+    }
     return $index;
+}
+
+function enforceAttemptLimit($dir) {
+    $now = time();
+    $window = 5 * 60;
+    $limit = 60;
+    $client = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    $file = $dir . '/attempts.json';
+    $attempts = loadIndex($file);
+    foreach ($attempts as $key => $item) {
+        if (!is_array($item) || $now - (int)($item['start'] ?? 0) > $window) unset($attempts[$key]);
+    }
+    $item = $attempts[$client] ?? ['start' => $now, 'count' => 0];
+    if ($now - (int)$item['start'] > $window) $item = ['start' => $now, 'count' => 0];
+    $item['count'] = (int)$item['count'] + 1;
+    $attempts[$client] = $item;
+    if (!saveIndex($file, $attempts)) {
+        jsonOut(['ok' => false, 'error' => '提取码限速状态保存失败，请稍后重试'], 503);
+    }
+    if ($item['count'] > $limit) {
+        jsonOut(['ok' => false, 'error' => '提取码尝试过于频繁，请5分钟后再试'], 429);
+    }
 }
 
 function sanitizeFilename($name) {
@@ -79,6 +141,9 @@ function sanitizeFilename($name) {
 $action = $_GET['action'] ?? 'upload';
 
 if ($action === 'upload') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+        jsonOut(['ok' => false, 'error' => '文件上传仅支持 POST 请求'], 405);
+    }
     if (!isset($_FILES['file'])) {
         jsonOut(['ok' => false, 'error' => '未接收到文件']);
     }
@@ -112,7 +177,7 @@ if ($action === 'upload') {
     }
 
     if (!is_dir($dir) || !is_writable($dir)) {
-        @mkdir($dir, 0777, true);
+        @mkdir($dir, 0775, true);
         if (!is_writable($dir)) {
             jsonOut(['ok' => false, 'error' => '服务器存储目录不可写']);
         }
@@ -124,16 +189,14 @@ if ($action === 'upload') {
     $used = [];
     foreach ($index as $k => $v) { $used[$k] = true; }
     for ($attempt = 0; $attempt < 200; $attempt++) {
-        $candidate = str_pad((string)mt_rand(0, 9999), 4, '0', STR_PAD_LEFT);
+        try {
+            $candidate = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        } catch (Throwable $e) {
+            jsonOut(['ok' => false, 'error' => '安全提取码生成失败'], 500);
+        }
         if (!isset($used[$candidate])) {
             $code = $candidate;
             break;
-        }
-    }
-    if ($code === '') {
-        for ($i = 0; $i <= 9999; $i++) {
-            $candidate = str_pad((string)$i, 4, '0', STR_PAD_LEFT);
-            if (!isset($used[$candidate])) { $code = $candidate; break; }
         }
     }
     if ($code === '') {
@@ -162,20 +225,28 @@ if ($action === 'upload') {
         'size' => $file['size'],
         'time' => time(),
     ];
-    saveIndex($index_file, $index);
+    if (!saveIndex($index_file, $index)) {
+        @unlink($dest);
+        jsonOut(['ok' => false, 'error' => '文件索引保存失败，请稍后重试']);
+    }
 
     jsonOut([
         'ok' => true,
         'code' => $code,
         'name' => $originalName,
         'size' => $file['size'],
+        'expires_in' => $ttl,
     ]);
 }
 
 if ($action === 'check') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+        jsonOut(['ok' => false, 'error' => '提取码查询仅支持 GET 请求'], 405);
+    }
+    enforceAttemptLimit($dir);
     $code = trim($_GET['code'] ?? '');
-    if (!preg_match('/^\d{4}$/', $code)) {
-        jsonOut(['ok' => false, 'error' => '提取码必须是 4 位数字']);
+    if (!preg_match('/^\d{6}$/', $code)) {
+        jsonOut(['ok' => false, 'error' => '提取码必须是 6 位数字'], 400);
     }
     $index = cleanExpired($dir, $index_file, $ttl);
     if (!isset($index[$code])) {
@@ -193,8 +264,15 @@ if ($action === 'check') {
 }
 
 if ($action === 'download') {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
+        while (ob_get_level() > 0) { ob_end_clean(); }
+        http_response_code(405);
+        echo '文件下载仅支持 GET 请求';
+        exit;
+    }
+    enforceAttemptLimit($dir);
     $code = trim($_GET['code'] ?? '');
-    if (!preg_match('/^\d{4}$/', $code)) {
+    if (!preg_match('/^\d{6}$/', $code)) {
         while (ob_get_level() > 0) { ob_end_clean(); }
         http_response_code(400);
         echo '无效的提取码';
@@ -226,7 +304,15 @@ if ($action === 'download') {
     }
 
     unset($index[$code]);
-    saveIndex($index_file, $index);
+    if (!saveIndex($index_file, $index)) {
+        while (ob_get_level() > 0) { ob_end_clean(); }
+        http_response_code(500);
+        echo '文件状态更新失败，请重试下载';
+        exit;
+    }
+
+    // 下载期间无需继续占用索引锁，允许其他用户上传或查询文件。
+    @flock($lockHandle, LOCK_UN);
 
     while (ob_get_level() > 0) { ob_end_clean(); }
     header('Content-Type: ' . $mime);

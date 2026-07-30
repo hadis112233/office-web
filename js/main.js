@@ -22,43 +22,110 @@
     updateTime();
     setInterval(updateTime, 1000);
 
-    // Weather (free API, fallback if unavailable)
-    function loadWeather() {
-        const el = document.getElementById('current-weather');
-        if (!el) return;
-        const fallback = '☀️ 晴 25°C';
-        try {
-            // Use Open-Meteo free API with a default location (Beijing-ish)
-            fetch('https://api.open-meteo.com/v1/forecast?latitude=39.9042&longitude=116.4074&current=temperature_2m,weather_code&timezone=Asia%2FShanghai')
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data && data.current) {
-                        const temp = Math.round(data.current.temperature_2m);
-                        const code = data.current.weather_code;
-                        el.textContent = weatherDesc(code) + ' ' + temp + '°C';
-                    } else {
-                        el.textContent = fallback;
-                    }
-                })
-                .catch(function () {
-                    el.textContent = fallback;
+    // 首页工具搜索：只筛选页面内已有工具，不会改变任何工具入口
+    (function initToolSearch() {
+        const input = document.getElementById('tool-search-input');
+        const clear = document.getElementById('tool-search-clear');
+        const status = document.getElementById('tool-search-status');
+        const empty = document.getElementById('search-empty');
+        const sections = Array.prototype.slice.call(document.querySelectorAll('.tool-section'));
+        if (!input || !sections.length) return;
+
+        function filterTools() {
+            const keyword = input.value.trim().toLowerCase();
+            let visibleCount = 0;
+            sections.forEach(function (section) {
+                let sectionHasVisibleCard = false;
+                section.querySelectorAll('.tool-card').forEach(function (card) {
+                    const content = (card.textContent || '').toLowerCase();
+                    const matched = !keyword || content.indexOf(keyword) !== -1;
+                    card.hidden = !matched;
+                    if (matched) { visibleCount += 1; sectionHasVisibleCard = true; }
                 });
-        } catch (e) {
-            el.textContent = fallback;
+                section.hidden = !!keyword && !sectionHasVisibleCard;
+            });
+            clear.hidden = !keyword;
+            empty.hidden = !keyword || visibleCount > 0;
+            status.textContent = keyword ? (visibleCount ? '找到 ' + visibleCount + ' 个相关工具' : '') : '';
         }
-    }
-    function weatherDesc(code) {
-        if ([0].indexOf(code) !== -1) return '☀️ 晴';
-        if ([1, 2].indexOf(code) !== -1) return '⛅ 少云';
-        if ([3].indexOf(code) !== -1) return '☁️ 多云';
-        if ([45, 48].indexOf(code) !== -1) return '🌫️ 雾';
-        if ([51, 53, 55, 56, 57].indexOf(code) !== -1) return '🌦️ 毛毛雨';
-        if ([61, 63, 65, 66, 67, 80, 81, 82].indexOf(code) !== -1) return '🌧️ 雨';
-        if ([71, 73, 75, 77, 85, 86].indexOf(code) !== -1) return '❄️ 雪';
-        if ([95, 96, 99].indexOf(code) !== -1) return '⛈️ 雷暴';
-        return '🌤️ 天气';
-    }
-    loadWeather();
+
+        input.addEventListener('input', filterTools);
+        clear.addEventListener('click', function () { input.value = ''; filterTools(); input.focus(); });
+        document.addEventListener('keydown', function (event) {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+                event.preventDefault(); input.focus();
+            }
+        });
+    })();
+
+    // 收藏与最近使用：仅保存到当前浏览器，不上传任何个人使用记录。
+    (function initToolShortcuts() {
+        const favoriteKey = 'office_tool_favorites';
+        const recentKey = 'office_tool_recent';
+        const favoriteSection = document.getElementById('favorite-section');
+        const favoriteGrid = document.getElementById('favorite-grid');
+        const recentBox = document.getElementById('recent-tools');
+        const recentList = document.getElementById('recent-tools-list');
+        const cards = Array.prototype.slice.call(document.querySelectorAll('.tool-grid > a.tool-card'));
+        if (!cards.length) return;
+        const catalog = {};
+        cards.forEach(function (card) {
+            const href = card.getAttribute('href');
+            const name = (card.querySelector('.tool-name') || {}).textContent || href;
+            const icon = (card.querySelector('.tool-icon') || {}).textContent || '🛠️';
+            const desc = (card.querySelector('.tool-desc') || {}).textContent || '';
+            if (href && !catalog[href]) catalog[href] = { href: href, name: name.trim(), icon: icon.trim(), desc: desc.trim() };
+        });
+        function load(key) { try { const value = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(value) ? value : []; } catch (e) { return []; } }
+        function save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+        function render() {
+            const favorites = load(favoriteKey).filter(function (href) { return !!catalog[href]; });
+            const recents = load(recentKey).filter(function (href) { return !!catalog[href]; });
+            favoriteGrid.innerHTML = '';
+            favorites.forEach(function (href) {
+                const item = catalog[href];
+                const card = document.createElement('a');
+                card.className = 'tool-card'; card.href = item.href;
+                card.innerHTML = '<div class="tool-icon"></div><div class="tool-name"></div><div class="tool-desc"></div>';
+                card.querySelector('.tool-icon').textContent = item.icon;
+                card.querySelector('.tool-name').textContent = item.name;
+                card.querySelector('.tool-desc').textContent = item.desc;
+                card.addEventListener('click', function () { recordRecent(item.href); });
+                favoriteGrid.appendChild(card);
+            });
+            favoriteSection.hidden = favorites.length === 0;
+            recentList.innerHTML = '';
+            recents.slice(0, 5).forEach(function (href) {
+                const item = catalog[href]; const link = document.createElement('a');
+                link.className = 'recent-tool-chip'; link.href = item.href; link.textContent = item.icon + ' ' + item.name;
+                link.addEventListener('click', function () { recordRecent(item.href); }); recentList.appendChild(link);
+            });
+            recentBox.hidden = recents.length === 0;
+            document.querySelectorAll('.favorite-toggle').forEach(function (button) {
+                button.setAttribute('aria-pressed', String(favorites.indexOf(button.dataset.href) !== -1));
+                button.title = favorites.indexOf(button.dataset.href) !== -1 ? '取消收藏' : '收藏工具';
+            });
+        }
+        function recordRecent(href) {
+            const recents = load(recentKey).filter(function (item) { return item !== href; });
+            recents.unshift(href); save(recentKey, recents.slice(0, 5));
+        }
+        cards.forEach(function (card) {
+            const href = card.getAttribute('href'); if (!href) return;
+            const wrapper = document.createElement('div'); wrapper.className = 'tool-card-wrapper';
+            card.parentNode.insertBefore(wrapper, card); wrapper.appendChild(card);
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'favorite-toggle'; button.dataset.href = href; button.setAttribute('aria-label', '收藏工具'); button.textContent = '★';
+            button.addEventListener('click', function (event) {
+                event.preventDefault(); event.stopPropagation();
+                const favorites = load(favoriteKey); const index = favorites.indexOf(href);
+                if (index === -1) favorites.unshift(href); else favorites.splice(index, 1);
+                save(favoriteKey, favorites); render();
+            });
+            card.addEventListener('click', function () { recordRecent(href); });
+            wrapper.appendChild(button);
+        });
+        render();
+    })();
 
     // 导航：点击弹出对应工具区块的悬浮弹框
     const navItems = document.querySelectorAll('.nav-item');
@@ -67,10 +134,13 @@
     const toolsModal = document.createElement('div');
     toolsModal.className = 'tools-modal';
     toolsModal.id = 'tools-modal';
+    toolsModal.setAttribute('role', 'dialog');
+    toolsModal.setAttribute('aria-modal', 'true');
+    toolsModal.setAttribute('aria-labelledby', 'tools-title');
     toolsModal.hidden = true;
     toolsModal.innerHTML =
         '<div class="tools-panel">' +
-            '<button class="tools-close" id="tools-close" title="关闭">✕</button>' +
+            '<button class="tools-close" id="tools-close" title="关闭" aria-label="关闭工具分类窗口">✕</button>' +
             '<div class="tools-header">' +
                 '<h2 class="tools-title" id="tools-title"></h2>' +
                 '<div class="tools-sub" id="tools-sub"></div>' +
@@ -83,6 +153,7 @@
     const toolsSub = document.getElementById('tools-sub');
     const toolsBody = document.getElementById('tools-body');
     const toolsClose = document.getElementById('tools-close');
+    let toolsReturnFocus = null;
 
     function openToolsModal(navItem) {
         const targetId = navItem.getAttribute('data-target');
@@ -98,14 +169,25 @@
         } else {
             toolsBody.innerHTML = '';
         }
+        toolsReturnFocus = document.activeElement;
         toolsModal.hidden = false;
+        document.body.style.overflow = 'hidden';
         navItems.forEach(function (n) { n.classList.remove('active'); });
         navItem.classList.add('active');
+        navItems.forEach(function (n) { n.setAttribute('aria-expanded', String(n === navItem)); });
+        setTimeout(function () { if (toolsClose) toolsClose.focus(); }, 0);
     }
     function closeToolsModal() {
         toolsModal.hidden = true;
+        document.body.style.overflow = '';
+        navItems.forEach(function (n) { n.setAttribute('aria-expanded', 'false'); });
+        if (toolsReturnFocus && toolsReturnFocus.focus) toolsReturnFocus.focus();
+        toolsReturnFocus = null;
     }
     navItems.forEach(function (item) {
+        item.setAttribute('aria-haspopup', 'dialog');
+        item.setAttribute('aria-controls', 'tools-modal');
+        item.setAttribute('aria-expanded', 'false');
         item.addEventListener('click', function (e) {
             e.preventDefault();
             openToolsModal(item);
@@ -117,14 +199,19 @@
         if (!toolsModal.hidden && e.key === 'Escape') closeToolsModal();
     });
 
-    // Generate anonymous user ID
-    if (!localStorage.getItem('chat_uid')) {
-        const uid = 'u' + Math.random().toString(36).slice(2, 8);
+    // 生成不可预测的匿名用户标识；旧版短标识会在本次访问自动升级。
+    const existingChatUid = localStorage.getItem('chat_uid') || '';
+    if (!/^u_[a-f0-9]{32}$/.test(existingChatUid)) {
+        const uidBytes = new Uint8Array(16);
+        window.crypto.getRandomValues(uidBytes);
+        const uid = 'u_' + Array.from(uidBytes, function(byte) {
+            return byte.toString(16).padStart(2, '0');
+        }).join('');
         localStorage.setItem('chat_uid', uid);
         const nicknames = ['访客', '匿名者', '路人', '小伙伴', '朋友', '同事', '同学'];
         const colors = ['#6366f1', '#059669', '#ea580c', '#0891b2', '#be185d', '#7c3aed', '#0891b2'];
-        localStorage.setItem('chat_nick', nicknames[Math.floor(Math.random() * nicknames.length)]);
-        localStorage.setItem('chat_color', colors[Math.floor(Math.random() * colors.length)]);
+        if (!localStorage.getItem('chat_nick')) localStorage.setItem('chat_nick', nicknames[Math.floor(Math.random() * nicknames.length)]);
+        if (!localStorage.getItem('chat_color')) localStorage.setItem('chat_color', colors[Math.floor(Math.random() * colors.length)]);
     }
 
     // Chat modal
@@ -142,22 +229,41 @@
     }
 
     let poller = null;
-    let lastCheck = 0;
+    let chatCursor = '';
+    let chatMessages = [];
+    let chatRequestInFlight = false;
+    let chatSendInFlight = false;
+    let pollTicks = 0;
+    let chatReturnFocus = null;
 
     function openChat() {
+        chatReturnFocus = document.activeElement;
         modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
         heartbeat();
         fetchMessages(true);
-        if (!poller) poller = setInterval(function () { fetchMessages(false); }, 3000);
+        if (!poller) poller = setInterval(function () {
+            fetchMessages(false);
+            pollTicks += 1;
+            if (pollTicks % 5 === 0) heartbeat();
+        }, 3000);
         setTimeout(function () { msgInput.focus(); }, 100);
     }
     function closeChat() {
         modal.hidden = true;
+        document.body.style.overflow = '';
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
         if (poller) { clearInterval(poller); poller = null; }
+        if (chatReturnFocus && chatReturnFocus.focus) chatReturnFocus.focus();
+        chatReturnFocus = null;
     }
     if (toggleBtn) toggleBtn.addEventListener('click', openChat);
     if (closeBtn) closeBtn.addEventListener('click', closeChat);
     if (modal) modal.addEventListener('click', function (e) { if (e.target === modal) closeChat(); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal && !modal.hidden) closeChat();
+    });
 
     function formatTime(ts) {
         const d = new Date(ts * 1000);
@@ -165,11 +271,12 @@
         const mm = String(d.getMinutes()).padStart(2, '0');
         return hh + ':' + mm;
     }
-    function renderMessages(list) {
+    function renderMessages(list, keepPosition) {
         if (!msgBox) return;
         const uid = localStorage.getItem('chat_uid');
         const nick = localStorage.getItem('chat_nick') || '访客';
         const color = localStorage.getItem('chat_color') || '#6366f1';
+        const stickToBottom = !keepPosition || msgBox.scrollTop + msgBox.clientHeight >= msgBox.scrollHeight - 40;
         msgBox.innerHTML = '';
 
         // group with day dividers
@@ -204,55 +311,72 @@
             row.appendChild(bubbleWrap);
             msgBox.appendChild(row);
         });
-        msgBox.scrollTop = msgBox.scrollHeight;
+        if (stickToBottom) msgBox.scrollTop = msgBox.scrollHeight;
     }
 
     function fetchMessages(initial) {
-        fetch('api/chat.php?action=list&since=' + lastCheck)
+        if (chatRequestInFlight) return;
+        chatRequestInFlight = true;
+        const url = 'api/chat.php?action=list' + (chatCursor ? '&cursor=' + encodeURIComponent(chatCursor) : '');
+        fetch(url)
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data && data.messages) {
-                    renderMessages(data.messages);
+                    if (initial || !chatCursor || data.reset) {
+                        chatMessages = data.messages;
+                        renderMessages(chatMessages, false);
+                    } else if (data.messages.length) {
+                        chatMessages = chatMessages.concat(data.messages);
+                        if (chatMessages.length > 100) chatMessages = chatMessages.slice(-100);
+                        renderMessages(chatMessages, true);
+                    }
                     if (data.online !== undefined) updateOnline(data.online);
-                    lastCheck = data.last_time || lastCheck;
+                    chatCursor = data.cursor || chatCursor;
                 }
             })
-            .catch(function () {});
+            .catch(function () {})
+            .finally(function () { chatRequestInFlight = false; });
     }
 
     function heartbeat() {
-        fetch('api/chat.php?action=heartbeat', { method: 'POST' })
+        const fd = new FormData();
+        fd.append('uid', localStorage.getItem('chat_uid') || '');
+        fetch('api/chat.php?action=heartbeat', { method: 'POST', body: fd })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data && data.online !== undefined) updateOnline(data.online);
             })
             .catch(function () {});
     }
-    // 页面打开时立刻获取一次在线人数（不依赖聊天弹框）
-    (function initialOnline() {
-        fetch('api/chat.php?action=heartbeat', { method: 'POST' })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data && data.online !== undefined) updateOnline(data.online);
-            })
-            .catch(function () {});
-    })();
+    // 在线人数仅在打开聊天室后刷新，避免首页加载时产生额外请求。
 
     function sendMessage() {
         const text = (msgInput.value || '').trim();
         if (!text) return;
+        if (chatSendInFlight) return;
         if (text.length > 500) { alert('单条消息最多 500 字'); return; }
         const uid = localStorage.getItem('chat_uid');
         const nick = localStorage.getItem('chat_nick') || '访客';
         const color = localStorage.getItem('chat_color') || '#6366f1';
-        msgInput.value = '';
+        chatSendInFlight = true;
+        if (sendBtn) sendBtn.disabled = true;
         fetch('api/chat.php?action=send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'text=' + encodeURIComponent(text) + '&uid=' + encodeURIComponent(uid) + '&nick=' + encodeURIComponent(nick) + '&color=' + encodeURIComponent(color)
         })
-            .then(function () { fetchMessages(false); })
-            .catch(function () {});
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                if (!data || !data.ok) throw new Error((data && data.error) || '发送失败');
+                if ((msgInput.value || '').trim() === text) msgInput.value = '';
+                fetchMessages(false);
+            })
+            .catch(function (error) { alert(error.message || '消息发送失败，请重试'); })
+            .finally(function () {
+                chatSendInFlight = false;
+                if (sendBtn) sendBtn.disabled = false;
+                if (msgInput) msgInput.focus();
+            });
     }
     if (sendBtn) sendBtn.addEventListener('click', sendMessage);
     if (msgInput) {
@@ -261,22 +385,27 @@
         });
     }
 
-    // Periodic heartbeat to maintain "online" status
-    setInterval(heartbeat, 20000);
-    heartbeat();
-
     // ==================== 快捷文件传输 ====================
     (function () {
         function showModal(id) {
             const modal = document.getElementById(id);
             if (!modal) return;
+            modal._returnFocus = document.activeElement;
+            if (modal._returnFocus && modal._returnFocus.setAttribute) modal._returnFocus.setAttribute('aria-expanded', 'true');
             modal.hidden = false;
             document.body.style.overflow = 'hidden';
+            setTimeout(function () {
+                const focusTarget = modal.querySelector('input:not([type="file"]), button, [tabindex]:not([tabindex="-1"])');
+                if (focusTarget) focusTarget.focus();
+            }, 0);
         }
         function hideModal(modal) {
             if (!modal) return;
             modal.hidden = true;
             document.body.style.overflow = '';
+            if (modal._returnFocus && modal._returnFocus.setAttribute) modal._returnFocus.setAttribute('aria-expanded', 'false');
+            if (modal._returnFocus && modal._returnFocus.focus) modal._returnFocus.focus();
+            modal._returnFocus = null;
         }
 
         // 按钮点击 → 打开对应弹框
@@ -328,12 +457,44 @@
             const resultBox = document.getElementById('send-transfer-result');
             const resultCode = document.getElementById('send-result-code');
             const resultName = document.getElementById('send-result-name');
+            const resultExpiry = document.getElementById('send-result-expiry');
+            let uploadInFlight = false;
+            let expiryTimer = null;
+
+            function startExpiryCountdown(seconds) {
+                if (expiryTimer) clearInterval(expiryTimer);
+                const expiresAt = Date.now() + Math.max(0, Number(seconds) || 600) * 1000;
+                function updateExpiry() {
+                    const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+                    if (resultExpiry) {
+                        if (remaining > 0) {
+                            const minutes = Math.floor(remaining / 60);
+                            const secs = String(remaining % 60).padStart(2, '0');
+                            resultExpiry.textContent = '接收后立即删除，未接收将在 ' + minutes + ':' + secs + ' 后过期。';
+                        } else {
+                            resultExpiry.textContent = '该提取码已过期，请重新上传文件。';
+                        }
+                    }
+                    if (remaining <= 0 && expiryTimer) {
+                        clearInterval(expiryTimer);
+                        expiryTimer = null;
+                    }
+                }
+                updateExpiry();
+                expiryTimer = setInterval(updateExpiry, 1000);
+            }
 
             function uploadFile(file) {
                 if (!file) return;
+                if (uploadInFlight) return;
                 if (file.size > 50 * 1024 * 1024) {
                     alert('文件超过 50 MB 限制');
                     return;
+                }
+                uploadInFlight = true;
+                if (expiryTimer) {
+                    clearInterval(expiryTimer);
+                    expiryTimer = null;
                 }
                 if (resultBox) resultBox.hidden = true;
                 if (progressBox) {
@@ -355,6 +516,7 @@
                     }
                 };
                 xhr.onload = function () {
+                    uploadInFlight = false;
                     if (progressBox) progressBox.hidden = true;
                     var resp = xhr.responseText || '';
                     var status = xhr.status;
@@ -365,6 +527,7 @@
                                 if (resultCode) resultCode.textContent = data.code;
                                 if (resultName) resultName.textContent = '📄 ' + data.name + ' (' + formatSize(data.size) + ')';
                                 if (resultBox) resultBox.hidden = false;
+                                startExpiryCountdown(data.expires_in);
                             } else {
                                 alert('上传失败：' + ((data && data.error) || '未知错误'));
                             }
@@ -376,6 +539,7 @@
                     }
                 };
                 xhr.onerror = function () {
+                    uploadInFlight = false;
                     if (progressBox) progressBox.hidden = true;
                     alert('上传失败，请检查网络连接');
                 };
@@ -411,7 +575,7 @@
             }
         }
 
-        // ------ 接收文件：输入 4 位码 → 下载 ------
+        // ------ 接收文件：输入 6 位码 → 下载 ------
         const receiveModal = document.getElementById('receive-modal');
         if (receiveModal) {
             const receiveBtn = document.getElementById('receive-file-btn');
@@ -447,8 +611,8 @@
 
             function checkCode() {
                 const code = (receiveInput.value || '').trim();
-                if (!/^\d{4}$/.test(code)) {
-                    receiveMsg.textContent = '请输入有效的 4 位数字提取码';
+                if (!/^\d{6}$/.test(code)) {
+                    receiveMsg.textContent = '请输入有效的 6 位数字提取码';
                     receiveMsg.style.color = '#dc2626';
                     receiveDownload.hidden = true;
                     currentCode = '';
@@ -501,7 +665,7 @@
             if (receiveBtn) receiveBtn.addEventListener('click', checkCode);
             if (receiveInput) {
                 receiveInput.addEventListener('input', function () {
-                    receiveInput.value = receiveInput.value.replace(/\D/g, '').slice(0, 4);
+                    receiveInput.value = receiveInput.value.replace(/\D/g, '').slice(0, 6);
                 });
                 receiveInput.addEventListener('keydown', function (e) {
                     if (e.key === 'Enter') checkCode();
@@ -545,227 +709,4 @@
         }
     })();
 
-    // ==================== 授权码功能 ====================
-    (function () {
-        const authBtn = document.getElementById('auth-btn');
-        const authStatus = document.getElementById('auth-status');
-        const authModal = document.getElementById('auth-modal');
-        const authClose = document.getElementById('auth-close');
-        const authInput = document.getElementById('auth-code-input');
-        const authMsg = document.getElementById('auth-msg');
-        const authSubmit = document.getElementById('auth-submit');
-        const authModalSub = document.getElementById('auth-modal-sub');
-        const authResetBtn = document.getElementById('auth-reset-btn');
-
-        // 全局授权状态
-        let isAuthorized = false;
-        let isInTrial = false;
-
-        // 创建全屏锁定层
-        const lockOverlay = document.createElement('div');
-        lockOverlay.className = 'auth-lock-overlay';
-        lockOverlay.id = 'auth-lock-overlay';
-        lockOverlay.hidden = true;
-        lockOverlay.innerHTML =
-            '<div class="auth-lock-card">' +
-                '<div class="auth-lock-icon">🔒</div>' +
-                '<div class="auth-lock-title">需要授权</div>' +
-                '<div class="auth-lock-sub">本系统需要输入授权码才能使用，授权后即可永久使用</div>' +
-                '<button class="auth-lock-btn" id="auth-lock-go">立即授权</button>' +
-            '</div>';
-        document.body.appendChild(lockOverlay);
-
-        const lockGoBtn = document.getElementById('auth-lock-go');
-        if (lockGoBtn) {
-            lockGoBtn.addEventListener('click', function () {
-                lockOverlay.hidden = true;
-                openAuthModal();
-            });
-        }
-
-        // 检查授权状态
-        function checkAuth() {
-            fetch('api/auth.php?action=check', { cache: 'no-store' })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (!data || !data.ok) return;
-                    isAuthorized = !!data.authorized;
-                    isInTrial = !!data.in_trial;
-                    updateAuthUI(data);
-                    applyLockState();
-                })
-                .catch(function () {
-                    if (authStatus) authStatus.textContent = '未连接';
-                });
-        }
-
-        function updateAuthUI(data) {
-            if (!authBtn) return;
-            if (data.permanent || data.authorized && data.days_left >= 9999) {
-                authBtn.setAttribute('data-auth-state', 'permanent');
-                if (authStatus) authStatus.textContent = '✓ 已永久授权';
-            } else if (data.authorized) {
-                const left = data.days_left;
-                if (data.expired_red) {
-                    authBtn.setAttribute('data-auth-state', 'red');
-                    if (authStatus) authStatus.textContent = '⚠️ 即将到期';
-                } else {
-                    authBtn.setAttribute('data-auth-state', 'ok');
-                    if (authStatus) authStatus.textContent = '剩余 ' + left + ' 天';
-                }
-            } else if (data.in_trial) {
-                const hours = data.trial_hours_left || 0;
-                authBtn.setAttribute('data-auth-state', 'trial');
-                if (authStatus) authStatus.textContent = '试用中 · 剩余 ' + hours + ' 小时';
-            } else {
-                authBtn.setAttribute('data-auth-state', 'none');
-                if (authStatus) authStatus.textContent = '未授权 · 点击输入';
-            }
-        }
-
-        // 应用锁定状态：已授权 或 试用期内 → 解锁；否则 → 锁定
-        function applyLockState() {
-            const body = document.body;
-            if (isAuthorized || isInTrial) {
-                lockOverlay.hidden = true;
-                body.classList.remove('auth-locked');
-            } else {
-                body.classList.add('auth-locked');
-            }
-        }
-
-        // 拦截所有功能按钮（除授权码按钮自身外）
-        function interceptClicks(e) {
-            if (isAuthorized || isInTrial) return;
-            if (!lockOverlay || !lockOverlay.hidden) return;
-
-            const target = e.target;
-            // 找到最近的 button / a 或 data-action
-            const actionable = target.closest && target.closest('button, a, [data-action], .tool-card, .nav-item, .transfer-action-btn, .floating-btn');
-            if (!actionable) return;
-            // 排除授权码按钮自身
-            if (actionable.id === 'auth-btn' || actionable.id === 'auth-lock-go' || actionable.id === 'auth-close') return;
-            // 排除授权弹框内的元素
-            if (target.closest('#auth-modal')) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            lockOverlay.hidden = false;
-        }
-
-        // 用捕获阶段拦截，优先级最高
-        document.addEventListener('click', interceptClicks, true);
-        document.addEventListener('pointerdown', interceptClicks, true);
-
-        // 点击授权码按钮 → 始终打开弹框
-        if (authBtn) {
-            authBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                openAuthModal();
-            }, true);
-        }
-
-        // 弹框内锁按钮重置授权
-        if (authResetBtn) {
-            authResetBtn.addEventListener('click', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!confirm('确定要重置授权吗？重置后所有功能将被锁定，需要重新输入授权码。')) return;
-                fetch('api/auth.php?action=reset', { method: 'POST', cache: 'no-store' })
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        if (data && data.ok) {
-                            // 立即强制锁定
-                            isAuthorized = false;
-                            isInTrial = false;
-                            if (authBtn) authBtn.setAttribute('data-auth-state', 'none');
-                            if (authStatus) authStatus.textContent = '未授权 · 点击输入';
-                            document.body.classList.add('auth-locked');
-                            // 关闭弹框并显示锁定层
-                            closeAuthModal();
-                            lockOverlay.hidden = false;
-                            // 异步再同步一次状态
-                            setTimeout(checkAuth, 200);
-                        }
-                    })
-                    .catch(function () {
-                        alert('重置失败，请稍后重试');
-                    });
-            });
-        }
-        if (authClose) authClose.addEventListener('click', closeAuthModal);
-        if (authModal) authModal.addEventListener('click', function (e) {
-            if (e.target === authModal) closeAuthModal();
-        });
-        document.addEventListener('keydown', function (e) {
-            if (authModal && !authModal.hidden && e.key === 'Escape') closeAuthModal();
-        });
-
-        function openAuthModal() {
-            if (authModal) {
-                authModal.hidden = false;
-                document.body.style.overflow = 'hidden';
-                // 根据授权状态显示/隐藏重置锁按钮
-                if (authResetBtn) {
-                    authResetBtn.hidden = !isAuthorized;
-                }
-                setTimeout(function () { if (authInput) authInput.focus(); }, 100);
-            }
-        }
-
-        function closeAuthModal() {
-            if (authModal) authModal.hidden = true;
-            document.body.style.overflow = '';
-            if (authInput) authInput.value = '';
-            if (authMsg) { authMsg.textContent = ''; authMsg.style.color = ''; }
-        }
-
-        // 只允许数字
-        if (authInput) {
-            authInput.addEventListener('input', function () {
-                authInput.value = authInput.value.replace(/\D/g, '').slice(0, 8);
-            });
-            authInput.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') { e.preventDefault(); submitCode(); }
-            });
-        }
-        if (authSubmit) authSubmit.addEventListener('click', submitCode);
-
-        function submitCode() {
-            if (!authInput) return;
-            const code = (authInput.value || '').trim();
-            if (code.length !== 8) {
-                if (authMsg) { authMsg.textContent = '请输入 8 位数字'; authMsg.style.color = '#dc2626'; }
-                return;
-            }
-            if (authMsg) { authMsg.textContent = '验证中...'; authMsg.style.color = '#64748b'; }
-
-            const fd = new FormData();
-            fd.append('code', code);
-            fetch('api/auth.php?action=verify', { method: 'POST', body: fd })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (data && data.ok) {
-                        if (authMsg) { authMsg.textContent = '✅ ' + (data.message || '授权成功'); authMsg.style.color = '#059669'; }
-                        isAuthorized = true;
-                        checkAuth();
-                        applyLockState();
-                        setTimeout(closeAuthModal, 1200);
-                    } else {
-                        if (authMsg) { authMsg.textContent = '❌ ' + (data.error || '授权码错误'); authMsg.style.color = '#dc2626'; }
-                    }
-                })
-                .catch(function () {
-                    if (authMsg) { authMsg.textContent = '网络错误，请稍后重试'; authMsg.style.color = '#dc2626'; }
-                });
-        }
-
-        // 页面打开时立即检查
-        checkAuth();
-        // 每 60 秒 检查一次
-        setInterval(checkAuth, 60 * 1000);
-    })();
 })();

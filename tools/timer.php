@@ -236,8 +236,13 @@ include '_header.php';
                 opacity: 0;
                 transition: opacity 0.2s;
                 font-size: 14px;
+                padding: 4px;
+                border: 0;
+                background: transparent;
+                color: inherit;
+                cursor: pointer;
             }
-            .task-item:hover .task-delete {
+            .task-item:hover .task-delete, .task-delete:focus-visible {
                 opacity: 1;
             }
             .modal-overlay {
@@ -447,7 +452,19 @@ include '_header.php';
                     const taskDiv = document.createElement('div');
                     taskDiv.className = 'task-item ' + (task.important ? 'important' : 'normal');
                     const displayHour = task.hour === '24' ? '00' : task.hour;
-                    taskDiv.innerHTML = '<span class="task-time">' + displayHour + ':' + task.minute + '</span> ' + task.text + '<span class="task-delete" onclick="deleteTask(event,' + index + ')">✕</span>';
+                    const time = document.createElement('span');
+                    time.className = 'task-time';
+                    time.textContent = displayHour + ':' + task.minute;
+                    const text = document.createTextNode(' ' + String(task.text || ''));
+                    const deleteButton = document.createElement('button');
+                    deleteButton.type = 'button';
+                    deleteButton.className = 'task-delete';
+                    deleteButton.setAttribute('aria-label', '删除任务');
+                    deleteButton.textContent = '✕';
+                    deleteButton.addEventListener('click', function(event) { deleteTask(event, index); });
+                    taskDiv.appendChild(time);
+                    taskDiv.appendChild(text);
+                    taskDiv.appendChild(deleteButton);
                     taskDiv.onclick = function(e) {
                         if (e.target.classList.contains('task-delete')) return;
                         if (task.important) {

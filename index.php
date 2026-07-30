@@ -1,7 +1,12 @@
 <?php
 date_default_timezone_set('Asia/Shanghai');
-$bg_images = glob('static/images/*.{jpg,jpeg,png,JPG,JPEG,PNG}', GLOB_BRACE);
+$webp_images = glob('static/images/*.{webp,WEBP}', GLOB_BRACE) ?: [];
+$fallback_images = glob('static/images/*.{jpg,jpeg,png,JPG,JPEG,PNG}', GLOB_BRACE) ?: [];
+$bg_images = array_merge($webp_images, $fallback_images);
 $bg_image = !empty($bg_images) ? $bg_images[0] : '';
+$style_version = @filemtime(__DIR__ . '/css/style.css') ?: time();
+$script_version = @filemtime(__DIR__ . '/js/main.js') ?: time();
+$bg_url = $bg_image !== '' ? $bg_image . '?v=' . (@filemtime(__DIR__ . '/' . $bg_image) ?: time()) : '';
 $welcome_messages = [
     '今天也要元气满满哦！',
     '努力工作，成就未来！',
@@ -21,10 +26,13 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="办公工具站提供 PDF、图片、文本处理与快捷文件传输等常用办公工具。">
+    <meta name="theme-color" content="#4f46e5">
     <title>办公工具站 - 您的一站式办公助手</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=<?php echo $style_version; ?>">
 </head>
-<body data-bg="<?php echo $bg_image; ?>">
+<body data-bg="<?php echo htmlspecialchars($bg_url, ENT_QUOTES, 'UTF-8'); ?>">
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
     <div class="app">
         <aside class="sidebar">
             <div class="logo">
@@ -44,23 +52,31 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 <a href="#section-text" class="nav-item" data-target="section-text">
                     <span class="nav-icon">📝</span><span>文本工具</span>
                 </a>
+                <a href="#section-media" class="nav-item" data-target="section-media">
+                    <span class="nav-icon">🎬</span><span>音/视频</span>
+                </a>
             </nav>
-            <div class="auth-section">
-                <button class="auth-btn" id="auth-btn" data-auth-state="unknown">
-                    <span class="auth-icon">🔑</span>
-                    <span class="auth-text">授权码</span>
-                    <span class="auth-status" id="auth-status">检查中...</span>
-                </button>
-            </div>
             <div class="sidebar-footer">
                 <span>© <?php echo date('Y'); ?> 办公工具站</span>
             </div>
         </aside>
 
-        <main class="main">
+        <main class="main" id="main-content" tabindex="-1">
             <section class="welcome-hero" id="top">
                 <div class="welcome-inner">
                     <h1 class="welcome-title">欢迎使用办公工具站 👋</h1>
+                    <div class="tool-search" role="search">
+                        <label class="sr-only" for="tool-search-input">搜索工具</label>
+                        <span class="tool-search-icon" aria-hidden="true">⌕</span>
+                        <input id="tool-search-input" type="search" placeholder="搜索工具，例如：压缩、二维码、转换…" autocomplete="off">
+                        <kbd title="按 Ctrl + K 快速搜索">Ctrl K</kbd>
+                        <button class="tool-search-clear" id="tool-search-clear" type="button" aria-label="清空搜索" hidden>×</button>
+                    </div>
+                    <p class="tool-search-status" id="tool-search-status" role="status" aria-live="polite"></p>
+                    <div class="recent-tools" id="recent-tools" hidden>
+                        <span>最近使用</span>
+                        <div id="recent-tools-list"></div>
+                    </div>
                     <div class="welcome-row">
                         <div class="welcome-left">
                             <div class="info-item time-item">
@@ -75,14 +91,14 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                             <div class="transfer-buttons-card">
                                 <div class="transfer-buttons-title">🚀 快捷文件传输</div>
                                 <div class="transfer-buttons-row">
-                                    <button class="transfer-action-btn" data-modal="send-modal">
+                                    <button class="transfer-action-btn" data-modal="send-modal" aria-haspopup="dialog" aria-controls="send-modal" aria-expanded="false">
                                         <span class="tbtn-icon">📤</span>
                                         <div>
                                             <div class="tbtn-main">发送文件</div>
                                             <div class="tbtn-sub">拖拽上传 · 生成提取码</div>
                                         </div>
                                     </button>
-                                    <button class="transfer-action-btn" data-modal="receive-modal">
+                                    <button class="transfer-action-btn" data-modal="receive-modal" aria-haspopup="dialog" aria-controls="receive-modal" aria-expanded="false">
                                         <span class="tbtn-icon">📥</span>
                                         <div>
                                             <div class="tbtn-main">接收文件</div>
@@ -119,8 +135,23 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">工作计划</div>
                         <div class="tool-desc">每日工作计划与重要提醒</div>
                     </a>
+                    <a class="tool-card" href="tools/salary-calculator.php">
+                        <div class="tool-icon">🧮</div>
+                        <div class="tool-name">工资计算器</div>
+                        <div class="tool-desc">估算个税、社保公积金和到手工资</div>
+                    </a>
+                    <a class="tool-card" href="tools/screen-test.php">
+                        <div class="tool-icon">🖥️</div>
+                        <div class="tool-name">在线屏幕测试</div>
+                        <div class="tool-desc">全屏切换色卡，辅助检查显示异常</div>
+                    </a>
 
                 </div>
+            </section>
+
+            <section class="tool-section favorite-section" id="favorite-section" hidden>
+                <h2 class="section-title">⭐ 我的收藏</h2>
+                <div class="tool-grid" id="favorite-grid"></div>
             </section>
 
             <section class="tool-section" id="section-pdf">
@@ -231,27 +262,53 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 </div>
             </section>
 
+            <section class="tool-section" id="section-media">
+                <h2 class="section-title">🎬 音/视频工具</h2>
+                <div class="tool-grid">
+                    <a class="tool-card" href="tools/video-process.php">
+                        <div class="tool-icon">🎞️</div>
+                        <div class="tool-name">视频转 GIF</div>
+                        <div class="tool-desc">截取视频片段，生成便于分享的 GIF</div>
+                    </a>
+                    <a class="tool-card" href="tools/video-process.php?mode=compress">
+                        <div class="tool-icon">🗜️</div>
+                        <div class="tool-name">视频压缩</div>
+                        <div class="tool-desc">在清晰度与文件体积间灵活取舍</div>
+                    </a>
+                    <a class="tool-card" href="tools/screen-test.php">
+                        <div class="tool-icon">🖥️</div>
+                        <div class="tool-name">在线屏幕测试</div>
+                        <div class="tool-desc">15 种纯色全屏切换测试</div>
+                    </a>
+                </div>
+            </section>
+
             <footer class="page-footer">
                 办公工具站 · 让工作更简单
             </footer>
+            <div class="search-empty" id="search-empty" hidden>
+                <div aria-hidden="true">🔎</div>
+                <strong>没有找到匹配的工具</strong>
+                <span>试试“PDF”“图片”“转换”等关键词</span>
+            </div>
         </main>
     </div>
 
-    <button class="floating-btn" id="chat-toggle" title="匿名聊天">
+    <button class="floating-btn" id="chat-toggle" title="匿名聊天" aria-label="打开匿名聊天室" aria-controls="chat-modal" aria-expanded="false">
         <span>💬</span>
     </button>
 
-    <div class="chat-modal" id="chat-modal" hidden>
+    <div class="chat-modal" id="chat-modal" role="dialog" aria-modal="true" aria-labelledby="chat-dialog-title" hidden>
         <div class="chat-panel">
             <div class="chat-header">
                 <div class="chat-title">
                     <span class="chat-avatar">💬</span>
                     <div>
-                        <div class="chat-name">匿名聊天室</div>
+                        <div class="chat-name" id="chat-dialog-title">匿名聊天室</div>
                         <div class="chat-sub">在线访客 · <span id="online-count">0</span></div>
                     </div>
                 </div>
-                <button class="chat-close" id="chat-close" title="关闭">✕</button>
+                <button class="chat-close" id="chat-close" title="关闭" aria-label="关闭匿名聊天室">✕</button>
             </div>
             <div class="chat-messages" id="chat-messages"></div>
             <div class="chat-footer">
@@ -262,11 +319,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
     </div>
 
     <!-- 发送文件弹框 -->
-    <div class="tfile-modal" id="send-modal" hidden>
+    <div class="tfile-modal" id="send-modal" role="dialog" aria-modal="true" aria-labelledby="send-modal-title" hidden>
         <div class="tfile-panel">
             <div class="tfile-header">
-                <div class="tfile-title">📤 发送文件</div>
-                <button class="tfile-close" data-close-modal>✕</button>
+                <div class="tfile-title" id="send-modal-title">📤 发送文件</div>
+                <button class="tfile-close" data-close-modal aria-label="关闭发送文件窗口">✕</button>
             </div>
             <div class="tfile-body">
                 <div class="tfile-hint">拖拽文件到下方区域，或点击选择文件（最大 50 MB）</div>
@@ -282,10 +339,10 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 </div>
                 <div class="transfer-result" id="send-transfer-result" hidden>
                     <div class="result-icon">✅</div>
-                    <div class="result-text">上传成功！请记住您的 <strong>4 位提取码</strong>：</div>
-                    <div class="result-code" id="send-result-code">----</div>
+                    <div class="result-text">上传成功！请记住您的 <strong>6 位提取码</strong>：</div>
+                    <div class="result-code" id="send-result-code">------</div>
                     <div class="result-name" id="send-result-name"></div>
-                    <div class="result-tip">该文件在被接收后将立即从服务器删除，最长保留 1 分钟。</div>
+                    <div class="result-tip" id="send-result-expiry">该文件在被接收后将立即从服务器删除，最长保留 10 分钟。</div>
                     <button class="btn small" data-close-modal style="margin-top:10px;">关闭</button>
                 </div>
             </div>
@@ -293,21 +350,21 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
     </div>
 
     <!-- 接收文件弹框 -->
-    <div class="tfile-modal" id="receive-modal" hidden>
+    <div class="tfile-modal" id="receive-modal" role="dialog" aria-modal="true" aria-labelledby="receive-modal-title" hidden>
         <div class="tfile-panel">
             <div class="tfile-header">
-                <div class="tfile-title">📥 接收文件</div>
-                <button class="tfile-close" data-close-modal>✕</button>
+                <div class="tfile-title" id="receive-modal-title">📥 接收文件</div>
+                <button class="tfile-close" data-close-modal aria-label="关闭接收文件窗口">✕</button>
             </div>
             <div class="tfile-body">
-                <div class="tfile-hint">请输入对方分享的 4 位数字提取码</div>
+                <div class="tfile-hint">请输入对方分享的 6 位数字提取码</div>
                 <div class="receive-box">
                     <div class="receive-row receive-row-head">
                         <div class="receive-icon">🔑</div>
-                        <div class="receive-label">请输入 4 位提取码</div>
+                        <div class="receive-label">请输入 6 位提取码</div>
                     </div>
                     <div class="receive-row receive-row-input">
-                        <input type="text" id="receive-code-input" maxlength="4" placeholder="例如 1234" inputmode="numeric">
+                        <input type="text" id="receive-code-input" maxlength="6" placeholder="例如 123456" inputmode="numeric" autocomplete="one-time-code">
                         <button class="btn" id="receive-file-btn">获取文件</button>
                     </div>
                     <div class="receive-msg" id="receive-file-msg"></div>
@@ -320,25 +377,6 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
         </div>
     </div>
 
-    <!-- 授权码弹框 -->
-    <div class="auth-modal" id="auth-modal" hidden>
-        <div class="auth-panel">
-            <button class="auth-close" id="auth-close" title="关闭">✕</button>
-            <div class="auth-header">
-                <button class="auth-reset-btn" id="auth-reset-btn" title="重置授权" hidden>🔒</button>
-                <div class="auth-title-icon">🔑</div>
-                <h2 class="auth-title">授权码验证</h2>
-                <div class="auth-sub" id="auth-modal-sub">授权码为当天日期</div>
-            </div>
-            <div class="auth-body">
-                <input type="text" id="auth-code-input" maxlength="8" placeholder="请输入授权码" inputmode="numeric" autocomplete="off">
-                <div class="auth-msg" id="auth-msg"></div>
-                <button class="auth-submit" id="auth-submit">确认授权</button>
-                <div class="auth-hint">授权后即可永久使用本系统</div>
-            </div>
-        </div>
-    </div>
-
-    <script src="js/main.js"></script>
+    <script src="js/main.js?v=<?php echo $script_version; ?>"></script>
 </body>
 </html>
