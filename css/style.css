@@ -93,6 +93,8 @@ body::after {
     padding: 30px 40px 80px;
     overflow-y: auto;
     min-width: 0;
+    max-width: 1680px;
+    margin-inline: auto;
 }
 
 .welcome-hero {
@@ -185,28 +187,33 @@ body::after {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: 20px;
-    padding: 30px 32px;
-    margin-bottom: 28px;
+    padding: clamp(22px, 2vw, 28px);
+    margin-bottom: 24px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
     scroll-margin-top: 20px;
 }
 .section-title {
-    font-size: 22px;
+    font-size: clamp(19px, 1.35vw, 22px);
     color: #1e293b;
-    margin-bottom: 22px;
-    padding-bottom: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
     border-bottom: 2px solid #e2e8f0;
 }
 
 .tool-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 260px));
+    justify-content: center;
+    gap: clamp(12px, 1vw, 18px);
 }
 .tool-card {
-    display: block;
+    display: flex;
+    min-height: 138px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-decoration: none;
-    padding: 22px 18px;
+    padding: 17px 14px;
     background: linear-gradient(135deg, #ffffff, #f8fafc);
     border-radius: 14px;
     border: 1px solid #e2e8f0;
@@ -227,7 +234,7 @@ body::after {
     box-shadow: 0 12px 28px rgba(99, 102, 241, 0.18);
     background: linear-gradient(135deg, #eef2ff, #ffffff);
 }
-.tool-icon { font-size: 42px; margin-bottom: 10px; }
+.tool-icon { font-size: 38px; margin-bottom: 8px; line-height: 1; }
 .tool-name { font-size: 16px; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
 .tool-desc { font-size: 12.5px; color: #64748b; line-height: 1.5; }
 
@@ -1080,15 +1087,15 @@ body::after {
     .sidebar-footer { display: none; }
     .nav { flex-direction: row; gap: 6px; flex: 1; }
     .nav-item { padding: 8px 12px; white-space: nowrap; font-size: 13px; }
-    .main { padding: 20px 14px 80px; }
+    .main { max-width: none; margin-inline: 0; padding: 20px 14px 80px; }
     .welcome-hero { padding: 10px 12px 12px; max-height: none; }
     .welcome-title { font-size: 16px; }
     .tool-search { height: 40px; }
     .tool-search input { font-size: 13px; }
     .tool-search kbd { display: none; }
-    .tool-section { padding: 22px 16px; }
-    .tool-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-    .tool-card { padding: 16px 12px; }
+    .tool-section { padding: 20px 16px; }
+    .tool-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); justify-content: stretch; gap: 12px; }
+    .tool-card { min-height: 126px; padding: 14px 10px; }
     .favorite-toggle { opacity:1; top:7px; right:7px; }
     .tool-icon { font-size: 34px; }
     .chat-panel { height: 85vh; }

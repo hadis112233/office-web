@@ -54,6 +54,9 @@ for (const character of css) {
   if (braceDepth < 0) break;
 }
 if (braceDepth !== 0) errors.push(`css/style.css：大括号不匹配（${braceDepth}）`);
+for (const marker of ['max-width: 1680px', 'repeat(auto-fit, minmax(190px, 260px))', 'justify-content: center', 'min-height: 138px']) {
+  if (!css.includes(marker)) errors.push(`css/style.css：宽屏比例修复缺少 ${marker}`);
+}
 
 const homepage = fs.readFileSync(path.join(root, 'index.php'), 'utf8');
 const toolLinkPattern = /href=["'](tools\/[^"'?#]+\.php)(?:[?#][^"']*)?["']/g;
