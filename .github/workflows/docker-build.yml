@@ -52,7 +52,7 @@ jobs:
           pull: true
           tags: office-web:smoke
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
 
       - name: Start container and verify health endpoint
         run: |
@@ -106,7 +106,7 @@ jobs:
           push: true
           pull: true
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/office-web:latest
             ghcr.io/${{ github.repository }}:latest

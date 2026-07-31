@@ -136,7 +136,7 @@ for (const marker of [
   'docker/login-action@dbcb813823bdd20940b903addbd779551569679f',
   'load: true',
   'cache-from: type=gha',
-  'cache-to: type=gha,mode=max',
+  'cache-to: type=gha,mode=max,ignore-error=true',
   'api/health.php',
   'docker rm --force office-web-smoke',
 ]) {
