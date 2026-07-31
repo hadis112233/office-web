@@ -6,6 +6,7 @@ $bg_images = array_merge($webp_images, $fallback_images);
 $bg_image = !empty($bg_images) ? $bg_images[0] : '';
 $style_version = @filemtime(__DIR__ . '/css/style.css') ?: time();
 $script_version = @filemtime(__DIR__ . '/js/main.js') ?: time();
+$theme_version = @filemtime(__DIR__ . '/js/theme.js') ?: time();
 $bg_url = $bg_image !== '' ? $bg_image . '?v=' . (@filemtime(__DIR__ . '/' . $bg_image) ?: time()) : '';
 $welcome_messages = [
     '今天也要元气满满哦！',
@@ -29,7 +30,9 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
     <meta name="description" content="办公工具站提供 PDF、图片、文本处理与快捷文件传输等常用办公工具。">
     <meta name="theme-color" content="#4f46e5">
     <title>办公工具站 - 您的一站式办公助手</title>
+    <script>(function(){try{var t=localStorage.getItem('office_theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme:dark)').matches))document.documentElement.classList.add('theme-dark');}catch(e){}})();</script>
     <link rel="stylesheet" href="css/style.css?v=<?php echo $style_version; ?>">
+    <script defer src="js/theme.js?v=<?php echo $theme_version; ?>"></script>
 </head>
 <body data-bg="<?php echo htmlspecialchars($bg_url, ENT_QUOTES, 'UTF-8'); ?>">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
@@ -259,6 +262,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">PDF 加水印</div>
                         <div class="tool-desc">为 PDF 添加文字水印</div>
                     </a>
+                    <a class="tool-card" href="tools/images-to-pdf.php">
+                        <div class="tool-icon">🖼️</div>
+                        <div class="tool-name">图片转 PDF</div>
+                        <div class="tool-desc">多张图片排序并合成为 PDF</div>
+                    </a>
                 </div>
             </section>
 
@@ -299,6 +307,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-icon">🔡</div>
                         <div class="tool-name">图片 Base64</div>
                         <div class="tool-desc">图片与 Base64 互转</div>
+                    </a>
+                    <a class="tool-card" href="tools/image-stitch.php">
+                        <div class="tool-icon">🧩</div>
+                        <div class="tool-name">图片拼接</div>
+                        <div class="tool-desc">纵向、横向或网格拼接多张图片</div>
                     </a>
                 </div>
             </section>

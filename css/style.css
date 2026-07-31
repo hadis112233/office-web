@@ -1245,3 +1245,63 @@ body::after {
     color: #64748b;
     line-height: 1.5;
 }
+
+/* 全站主题切换：默认跟随系统，用户选择后保存在当前浏览器。 */
+.theme-toggle {
+    margin: 8px 8px 12px;
+    padding: 9px 11px;
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 9px;
+    color: #e2e8f0;
+    background: rgba(255,255,255,.08);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+}
+body > .theme-toggle { position: fixed; z-index: 1200; top: 14px; right: 16px; margin: 0; color: #334155; background: rgba(255,255,255,.94); border-color: #cbd5e1; box-shadow: 0 5px 18px rgba(15,23,42,.14); }
+.theme-toggle:hover { border-color: #818cf8; }
+html.theme-dark { color-scheme: dark; }
+html.theme-dark body::after { background: linear-gradient(135deg, rgba(2,6,23,.84), rgba(30,27,75,.78)); }
+html.theme-dark .welcome-hero,
+html.theme-dark .tool-section,
+html.theme-dark .tool-page,
+html.theme-dark .tool-panel,
+html.theme-dark .tools-panel,
+html.theme-dark .chat-panel { color: #cbd5e1; background: rgba(15,23,42,.94); }
+html.theme-dark .tool-card,
+html.theme-dark .tools-body .tool-card { color: #cbd5e1; border-color: #334155; background: linear-gradient(135deg,#111827,#172033); }
+html.theme-dark .tool-card:hover,
+html.theme-dark .tools-body .tool-card:hover { border-color: #818cf8; background: linear-gradient(135deg,#1e1b4b,#172033); }
+html.theme-dark .welcome-title,
+html.theme-dark .info-value,
+html.theme-dark .section-title,
+html.theme-dark .tool-name,
+html.theme-dark .tool-page h1,
+html.theme-dark .tool-panel h3,
+html.theme-dark .tools-title,
+html.theme-dark .tools-body .tool-name,
+html.theme-dark .chat-name { color: #f8fafc; }
+html.theme-dark .tool-search,
+html.theme-dark .recent-tool-chip,
+html.theme-dark input,
+html.theme-dark select,
+html.theme-dark textarea,
+html.theme-dark .result-box,
+html.theme-dark .stat-box,
+html.theme-dark .rate-table,
+html.theme-dark .tools-header { color: #e2e8f0; border-color: #334155; background: #111827; }
+html.theme-dark .tool-search input { color: #f8fafc; }
+html.theme-dark .section-title,
+html.theme-dark .tools-header,
+html.theme-dark .editor-footer,
+html.theme-dark .toolbar { border-color: #334155; }
+html.theme-dark .tool-desc,
+html.theme-dark .tools-sub,
+html.theme-dark .tools-body .tool-desc,
+html.theme-dark .tool-page .desc,
+html.theme-dark .helper,
+html.theme-dark .tip { color: #94a3b8; }
+html.theme-dark table,
+html.theme-dark th,
+html.theme-dark td { color: #e2e8f0; border-color: #334155; background: #111827; }
+html.theme-dark body > .theme-toggle { color: #f8fafc; border-color: #475569; background: rgba(15,23,42,.96); }
