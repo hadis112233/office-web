@@ -192,8 +192,8 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 <div class="tool-grid">
                     <a class="tool-card" href="tools/csv-helper.php">
                         <div class="tool-icon">📊</div>
-                        <div class="tool-name">CSV 表格助手</div>
-                        <div class="tool-desc">预览、转置、去重并导出 CSV 表格</div>
+                        <div class="tool-name">CSV / JSON 表格助手</div>
+                        <div class="tool-desc">预览、清洗并双向转换表格数据</div>
                     </a>
                     <a class="tool-card" href="tools/rmb-uppercase.php">
                         <div class="tool-icon">💴</div>
