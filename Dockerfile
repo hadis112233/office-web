@@ -1,4 +1,4 @@
-﻿FROM node:20-alpine AS frontend-assets
+FROM node:24-alpine AS frontend-assets
 
 WORKDIR /assets
 RUN npm init -y >/dev/null 2>&1 \
