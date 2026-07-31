@@ -1,0 +1,34 @@
+<?php
+$title = '图片转 PDF';
+$desc = '将多张 JPG、PNG 或 WebP 图片排序后合并为一个 PDF。图片只在浏览器中处理。';
+include '_header.php';
+?>
+            <div class="tool-panel">
+                <label for="files">选择图片（最多 30 张，总计不超过 100 MB）</label>
+                <input id="files" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+                <div class="pdf-options">
+                    <label>页面方向 <select id="orientation"><option value="portrait">A4 纵向</option><option value="landscape">A4 横向</option></select></label>
+                    <label>页边距 <select id="margin"><option value="10">10 mm</option><option value="5">5 mm</option><option value="0">无边距</option></select></label>
+                    <label>图片质量 <select id="quality"><option value="0.92">高</option><option value="0.82" selected>标准</option><option value="0.68">较小文件</option></select></label>
+                </div>
+                <div class="btn-row"><button class="btn success" id="generate" type="button">生成并下载 PDF</button><button class="btn secondary" id="clear" type="button">清空</button></div>
+                <p class="helper" id="status" role="status">选择图片后可调整顺序，每张图片生成一页。</p>
+            </div>
+            <div class="tool-panel" id="listPanel" hidden><h3>图片顺序</h3><div class="image-list" id="imageList"></div></div>
+            <style>
+            .pdf-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:14px 0}.pdf-options label{display:grid;gap:7px}.image-list{display:grid;gap:9px}.image-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px;border:1px solid #e2e8f0;border-radius:10px}.image-row img{width:64px;height:52px;object-fit:contain;border-radius:6px;background:#f8fafc}.image-meta{min-width:0}.image-meta strong,.image-meta span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.image-meta span{margin-top:3px;color:#64748b;font-size:12px}.row-actions{display:flex;gap:5px}.row-actions button{padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer}.helper{color:#64748b;font-size:12px}@media(max-width:650px){.pdf-options{grid-template-columns:1fr}.image-row{grid-template-columns:52px minmax(0,1fr)}.image-row img{width:52px}.row-actions{grid-column:1/-1;justify-content:flex-end}}
+            </style>
+            <script src="../static/vendor/jspdf.umd.min.js" onerror="document.getElementById('status').textContent='本地 PDF 组件加载失败，请刷新页面重试。'"></script>
+            <script>
+            (function(){
+                const $=id=>document.getElementById(id);let items=[];
+                function release(item){if(item&&item.url)URL.revokeObjectURL(item.url);}
+                function render(){const list=$('imageList');list.replaceChildren();items.forEach((item,index)=>{const row=document.createElement('div');row.className='image-row';const image=document.createElement('img');image.src=item.url;image.alt='第 '+(index+1)+' 张图片预览';const meta=document.createElement('div');meta.className='image-meta';const name=document.createElement('strong');name.textContent=(index+1)+'. '+item.file.name;const size=document.createElement('span');size.textContent=(item.file.size/1024/1024).toFixed(2)+' MB';meta.append(name,size);const actions=document.createElement('div');actions.className='row-actions';[['↑','上移',-1],['↓','下移',1],['删除','删除',0]].forEach(option=>{const button=document.createElement('button');button.type='button';button.textContent=option[0];button.title=option[1];button.addEventListener('click',()=>{if(option[2]===0){release(items[index]);items.splice(index,1);}else{const target=index+option[2];if(target<0||target>=items.length)return;[items[index],items[target]]=[items[target],items[index]];}render();});actions.appendChild(button);});row.append(image,meta,actions);list.appendChild(row);});$('listPanel').hidden=!items.length;$('status').textContent=items.length?'已选择 '+items.length+' 张图片，可使用箭头调整顺序。':'选择图片后可调整顺序，每张图片生成一页。';}
+                $('files').addEventListener('change',event=>{const selected=Array.from(event.target.files||[]);const valid=selected.filter(file=>['image/jpeg','image/png','image/webp'].includes(file.type));const combined=items.map(item=>item.file).concat(valid);if(combined.length>30||combined.reduce((sum,file)=>sum+file.size,0)>100*1024*1024){$('status').textContent='最多选择 30 张且总计不超过 100 MB。';event.target.value='';return;}valid.forEach(file=>items.push({file,url:URL.createObjectURL(file)}));event.target.value='';render();});
+                function load(item){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error('无法读取 '+item.file.name));image.src=item.url;});}
+                async function jpegData(image,quality){const maxSide=4000,scale=Math.min(1,maxSide/Math.max(image.naturalWidth,image.naturalHeight)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);return {url:canvas.toDataURL('image/jpeg',quality),width:canvas.width,height:canvas.height};}
+                $('generate').addEventListener('click',async()=>{if(!items.length){$('status').textContent='请先选择图片。';return;}if(!window.jspdf||!window.jspdf.jsPDF){$('status').textContent='PDF 组件尚未加载，请刷新页面重试。';return;}const button=$('generate');button.disabled=true;try{const orientation=$('orientation').value,margin=Number($('margin').value),quality=Number($('quality').value),pdf=new window.jspdf.jsPDF({orientation,unit:'mm',format:'a4',compress:true}),pageWidth=orientation==='portrait'?210:297,pageHeight=orientation==='portrait'?297:210;for(let index=0;index<items.length;index++){$('status').textContent='正在处理第 '+(index+1)+' / '+items.length+' 张图片…';const image=await load(items[index]),data=await jpegData(image,quality);if(index)pdf.addPage('a4',orientation);const availableWidth=pageWidth-margin*2,availableHeight=pageHeight-margin*2,ratio=Math.min(availableWidth/data.width,availableHeight/data.height),width=data.width*ratio,height=data.height*ratio;pdf.addImage(data.url,'JPEG',(pageWidth-width)/2,(pageHeight-height)/2,width,height,undefined,'FAST');await new Promise(resolve=>setTimeout(resolve,0));}pdf.save('images.pdf');$('status').textContent='PDF 已生成，共 '+items.length+' 页。';}catch(error){$('status').textContent='生成失败：'+error.message;}finally{button.disabled=false;}});
+                $('clear').addEventListener('click',()=>{items.forEach(release);items=[];$('files').value='';render();});window.addEventListener('beforeunload',()=>items.forEach(release));
+            })();
+            </script>
+<?php include '_footer.php'; ?>

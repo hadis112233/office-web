@@ -125,6 +125,7 @@ const pdfToolRequirements = new Map([
   ['tools/pdf-compress.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jspdf.umd.min.js']],
   ['tools/pdf-watermark.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jspdf.umd.min.js']],
   ['tools/pdf-to-image.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jszip.min.js']],
+  ['tools/images-to-pdf.php', ['../static/vendor/jspdf.umd.min.js']],
 ]);
 for (const [relative, assets] of pdfToolRequirements) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
@@ -215,6 +216,22 @@ if (pdfMergeTool.includes("$('fileList').innerHTML") || !pdfMergeTool.includes('
 const imageBase64Tool = fs.readFileSync(path.join(root, 'tools', 'image-base64.php'), 'utf8');
 for (const marker of ['allowedImageTypes', 'maxDataUrlLength', 'validImageDataUrl']) {
   if (!imageBase64Tool.includes(marker)) errors.push(`tools/image-base64.php：Base64 图片校验缺少 ${marker}`);
+}
+
+const imageToPdfTool = fs.readFileSync(path.join(root, 'tools', 'images-to-pdf.php'), 'utf8');
+for (const marker of ['combined.length>30', '100*1024*1024', 'maxSide=4000', 'pdf.addImage', 'URL.revokeObjectURL']) {
+  if (!imageToPdfTool.includes(marker)) errors.push(`tools/images-to-pdf.php：图片转 PDF 保护缺少 ${marker}`);
+}
+const imageStitchTool = fs.readFileSync(path.join(root, 'tools', 'image-stitch.php'), 'utf8');
+for (const marker of ['selected.length>20', '80000000', '30000/width', 'resultFormat', 'URL.revokeObjectURL', '图片只在浏览器中处理']) {
+  if (!imageStitchTool.includes(marker)) errors.push(`tools/image-stitch.php：图片拼接保护缺少 ${marker}`);
+}
+const themeScript = fs.readFileSync(path.join(root, 'js', 'theme.js'), 'utf8');
+for (const marker of ['office_theme', 'prefers-color-scheme: dark', 'theme-dark', 'theme-toggle']) {
+  if (!themeScript.includes(marker)) errors.push(`js/theme.js：主题切换缺少 ${marker}`);
+}
+if (!homepage.includes('js/theme.js') || !fs.readFileSync(path.join(root, 'tools', '_header.php'), 'utf8').includes('js/theme.js')) {
+  errors.push('主题切换：主页或工具页未加载统一主题脚本');
 }
 
 if (errors.length) {
