@@ -86,6 +86,7 @@ const documentTools = new Map([
   ['tools/csv-helper.php', ['parseCsv', '5*1024*1024', 'URL.revokeObjectURL', '文件只在浏览器中处理']],
   ['tools/rmb-uppercase.php', ['integerText', '999999999999.99', '正式票据请再次核对']],
   ['tools/rich-text-editor.php', ['safeHtml', "localStorage.setItem(storageKey,safeHtml())", "addEventListener('drop'", '粘贴内容会转为纯文本']],
+  ['tools/json-formatter.php', ['JSON.parse', 'maxNodes=100000', 'maxDepth=100', 'errorLocation', 'sortValue', 'URL.revokeObjectURL', '内容只在浏览器中处理']],
 ]);
 for (const [relative, markers] of documentTools) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
