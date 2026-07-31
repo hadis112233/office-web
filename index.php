@@ -49,6 +49,9 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 <a href="#section-document" class="nav-item" data-target="section-document">
                     <span class="nav-icon">📊</span><span>表格文档</span>
                 </a>
+                <a href="#section-productivity" class="nav-item" data-target="section-productivity">
+                    <span class="nav-icon">🎯</span><span>效率演示</span>
+                </a>
                 <a href="#section-pdf" class="nav-item" data-target="section-pdf">
                     <span class="nav-icon">📄</span><span>PDF</span>
                 </a>
@@ -198,6 +201,27 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-icon">📝</div>
                         <div class="tool-name">富文本编辑器</div>
                         <div class="tool-desc">本地排版、自动保存、打印和导出</div>
+                    </a>
+                </div>
+            </section>
+
+            <section class="tool-section" id="section-productivity">
+                <h2 class="section-title">🎯 效率与演示</h2>
+                <div class="tool-grid">
+                    <a class="tool-card" href="tools/signature-pad.php">
+                        <div class="tool-icon">✍️</div>
+                        <div class="tool-name">电子签名板</div>
+                        <div class="tool-desc">手写签名并导出透明 PNG 图片</div>
+                    </a>
+                    <a class="tool-card" href="tools/screen-recorder.php">
+                        <div class="tool-icon">⏺️</div>
+                        <div class="tool-name">屏幕录制</div>
+                        <div class="tool-desc">录制屏幕或窗口并下载 WebM 视频</div>
+                    </a>
+                    <a class="tool-card" href="tools/pomodoro.php">
+                        <div class="tool-icon">🍅</div>
+                        <div class="tool-name">番茄专注钟</div>
+                        <div class="tool-desc">专注与休息循环、提醒和次数统计</div>
                     </a>
                 </div>
             </section>

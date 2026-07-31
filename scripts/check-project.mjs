@@ -94,6 +94,18 @@ for (const [relative, markers] of documentTools) {
   }
 }
 
+const productivityTools = new Map([
+  ['tools/signature-pad.php', ["addEventListener('pointerdown'", 'ResizeObserver', 'toBlob', '签名不会上传服务器']],
+  ['tools/screen-recorder.php', ['getDisplayMedia', 'MediaRecorder.isTypeSupported', 'seconds>=3600', 'URL.revokeObjectURL', '录制内容不会上传服务器']],
+  ['tools/pomodoro.php', ['deadline-Date.now()', 'office_pomodoro_stats', 'Notification.requestPermission', 'setPhase(phase===', 'completed']],
+]);
+for (const [relative, markers] of productivityTools) {
+  const source = fs.readFileSync(path.join(root, relative), 'utf8');
+  for (const marker of markers) {
+    if (!source.includes(marker)) errors.push(`${relative}：效率演示功能缺少 ${marker}`);
+  }
+}
+
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
 const requiredPdfAssets = [
   'static/vendor/pdf.min.js',
