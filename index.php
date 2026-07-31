@@ -46,6 +46,9 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 <a href="#section-office" class="nav-item" data-target="section-office">
                     <span class="nav-icon">🧰</span><span>办公辅助</span>
                 </a>
+                <a href="#section-document" class="nav-item" data-target="section-document">
+                    <span class="nav-icon">📊</span><span>表格文档</span>
+                </a>
                 <a href="#section-pdf" class="nav-item" data-target="section-pdf">
                     <span class="nav-icon">📄</span><span>PDF</span>
                 </a>
@@ -174,6 +177,27 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-icon">↔️</div>
                         <div class="tool-name">文本对比</div>
                         <div class="tool-desc">逐行找出两段文本的增删差异</div>
+                    </a>
+                </div>
+            </section>
+
+            <section class="tool-section" id="section-document">
+                <h2 class="section-title">📊 表格与文档</h2>
+                <div class="tool-grid">
+                    <a class="tool-card" href="tools/csv-helper.php">
+                        <div class="tool-icon">📊</div>
+                        <div class="tool-name">CSV 表格助手</div>
+                        <div class="tool-desc">预览、转置、去重并导出 CSV 表格</div>
+                    </a>
+                    <a class="tool-card" href="tools/rmb-uppercase.php">
+                        <div class="tool-icon">💴</div>
+                        <div class="tool-name">人民币大写</div>
+                        <div class="tool-desc">金额转换为财务票据中文大写</div>
+                    </a>
+                    <a class="tool-card" href="tools/rich-text-editor.php">
+                        <div class="tool-icon">📝</div>
+                        <div class="tool-name">富文本编辑器</div>
+                        <div class="tool-desc">本地排版、自动保存、打印和导出</div>
                     </a>
                 </div>
             </section>
