@@ -107,6 +107,9 @@ for (const [relative, markers] of productivityTools) {
 }
 
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
+if (!dockerfile.includes('FROM node:24-alpine AS frontend-assets')) {
+  errors.push('Dockerfile：前端构建环境未使用 Node.js 24');
+}
 const requiredPdfAssets = [
   'static/vendor/pdf.min.js',
   'static/vendor/pdf.worker.min.js',
@@ -117,6 +120,27 @@ const requiredPdfAssets = [
 ];
 for (const asset of requiredPdfAssets) {
   if (!dockerfile.includes(asset)) errors.push(`Dockerfile：未打包离线 PDF 组件 ${asset}`);
+}
+
+const compose = fs.readFileSync(path.join(root, 'docker-compose.yml'), 'utf8');
+if (/^version\s*:/m.test(compose)) {
+  errors.push('docker-compose.yml：仍包含新版 Compose 已废弃的 version 字段');
+}
+
+const dockerWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'docker-build.yml'), 'utf8');
+for (const marker of [
+  'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
+  'shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240',
+  'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
+  'docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a',
+  'docker/login-action@dbcb813823bdd20940b903addbd779551569679f',
+  'load: true',
+  'cache-from: type=gha',
+  'cache-to: type=gha,mode=max,ignore-error=true',
+  'api/health.php',
+  'docker rm --force office-web-smoke',
+]) {
+  if (!dockerWorkflow.includes(marker)) errors.push(`Docker 工作流：构建安全或运行检查缺少 ${marker}`);
 }
 
 const pdfToolRequirements = new Map([
