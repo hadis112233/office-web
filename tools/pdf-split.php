@@ -32,6 +32,13 @@ include '_header.php';
             $('file').addEventListener('change', async function(e) {
                 const f = e.target.files[0];
                 if (!f) return;
+                resultBlob = null;
+                if ((f.type && f.type !== 'application/pdf') || f.size > 120 * 1024 * 1024) {
+                    currentFile = null;
+                    e.target.value = '';
+                    $('info').textContent = '请选择 120 MB 以内的 PDF 文件。';
+                    return;
+                }
                 currentFile = f;
                 if (window.PDFLib) {
                     try {
@@ -76,9 +83,11 @@ include '_header.php';
             function downloadResult() {
                 if (!resultBlob) return alert('请先分割 PDF');
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(resultBlob);
+                const url = URL.createObjectURL(resultBlob);
+                a.href = url;
                 a.download = 'split.pdf';
                 a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
             </script>
 <?php include '_footer.php'; ?>

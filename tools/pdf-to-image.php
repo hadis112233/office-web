@@ -42,6 +42,12 @@ include '_header.php';
             $('file').addEventListener('change', function(e) {
                 const f = e.target.files[0];
                 if (!f) return;
+                if ((f.type && f.type !== 'application/pdf') || f.size > 120 * 1024 * 1024) {
+                    currentFile = null;
+                    e.target.value = '';
+                    $('info').textContent = '请选择 120 MB 以内的 PDF 文件。';
+                    return;
+                }
                 currentFile = f;
                 $('info').textContent = '已选择：' + f.name + '（' + formatSize(f.size) + '），正在读取 PDF…';
                 images = [];
