@@ -131,6 +131,7 @@ const dockerWorkflow = fs.readFileSync(path.join(root, '.github', 'workflows', '
 for (const marker of [
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
   'shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240',
+  'docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c',
   'docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a',
   'docker/login-action@dbcb813823bdd20940b903addbd779551569679f',
   'load: true',
