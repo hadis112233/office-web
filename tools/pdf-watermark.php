@@ -43,6 +43,13 @@ include '_header.php';
             $('file').addEventListener('change', function(e) {
                 const f = e.target.files[0];
                 if (!f) return;
+                resultBlob = null;
+                if ((f.type && f.type !== 'application/pdf') || f.size > 120 * 1024 * 1024) {
+                    currentFile = null;
+                    e.target.value = '';
+                    $('info').textContent = '请选择 120 MB 以内的 PDF 文件。';
+                    return;
+                }
                 currentFile = f;
                 $('info').textContent = '已选择：' + f.name + '（' + (f.size / 1024).toFixed(1) + ' KB）';
                 $('preview').innerHTML = '';
@@ -128,9 +135,11 @@ include '_header.php';
             function downloadResult() {
                 if (!resultBlob) return alert('请先添加水印');
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(resultBlob);
+                const url = URL.createObjectURL(resultBlob);
+                a.href = url;
                 a.download = 'watermarked.pdf';
                 a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
             </script>
 <?php include '_footer.php'; ?>

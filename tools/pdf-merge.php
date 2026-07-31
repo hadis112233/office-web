@@ -27,8 +27,16 @@ include '_header.php';
 
             $('files').addEventListener('change', function(e) {
                 selectedFiles = Array.from(e.target.files);
+                resultBlob = null;
                 const list = $('fileList');
                 list.replaceChildren();
+                const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+                if (selectedFiles.length > 20 || totalSize > 150 * 1024 * 1024 || selectedFiles.some(file => file.type && file.type !== 'application/pdf')) {
+                    selectedFiles = [];
+                    e.target.value = '';
+                    list.textContent = '最多选择 20 个 PDF，且总计不超过 150 MB。';
+                    return;
+                }
                 if (!selectedFiles.length) {
                     list.textContent = '（未选择文件）';
                     return;
@@ -64,9 +72,11 @@ include '_header.php';
             function downloadResult() {
                 if (!resultBlob) return alert('请先合并 PDF');
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(resultBlob);
+                const url = URL.createObjectURL(resultBlob);
+                a.href = url;
                 a.download = 'merged.pdf';
                 a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             }
 
             (function checkLib(){

@@ -226,6 +226,31 @@ const imageStitchTool = fs.readFileSync(path.join(root, 'tools', 'image-stitch.p
 for (const marker of ['selected.length>20', '80000000', '30000/width', 'resultFormat', 'URL.revokeObjectURL', '图片只在浏览器中处理']) {
   if (!imageStitchTool.includes(marker)) errors.push(`tools/image-stitch.php：图片拼接保护缺少 ${marker}`);
 }
+
+const hardenedImageTools = new Map([
+  ['tools/image-compress.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'fillRect(0, 0, canvas.width, canvas.height)', 'beforeunload', 'revoke(previewUrl)']],
+  ['tools/image-format.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'beforeunload', 'revoke(previewUrl)']],
+  ['tools/image-edit.php', ['MAX_HISTORY = 15', '25 * 1024 * 1024', '30000000', 'URL.revokeObjectURL(sourceUrl)', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+]);
+for (const [relative, markers] of hardenedImageTools) {
+  const source = fs.readFileSync(path.join(root, relative), 'utf8');
+  for (const marker of markers) {
+    if (!source.includes(marker)) errors.push(`${relative}：图片内存保护缺少 ${marker}`);
+  }
+}
+const hardenedPdfTools = new Map([
+  ['tools/pdf-merge.php', ['selectedFiles.length > 20', '150 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/pdf-split.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/pdf-compress.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/pdf-watermark.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/pdf-to-image.php', ['120 * 1024 * 1024', 'URL.revokeObjectURL(previewUrl)', 'URL.revokeObjectURL(url)']],
+]);
+for (const [relative, markers] of hardenedPdfTools) {
+  const source = fs.readFileSync(path.join(root, relative), 'utf8');
+  for (const marker of markers) {
+    if (!source.includes(marker)) errors.push(`${relative}：PDF 内存保护缺少 ${marker}`);
+  }
+}
 const themeScript = fs.readFileSync(path.join(root, 'js', 'theme.js'), 'utf8');
 for (const marker of ['office_theme', 'prefers-color-scheme: dark', 'theme-dark', 'theme-toggle']) {
   if (!themeScript.includes(marker)) errors.push(`js/theme.js：主题切换缺少 ${marker}`);

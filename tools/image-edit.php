@@ -306,7 +306,7 @@ include '_header.php';
     <div class="editor-header">
         <div class="editor-btn-group">
             <button class="editor-btn editor-btn-primary" id="open-btn">📂 打开</button>
-            <input type="file" id="file-input" accept="image/*" hidden>
+            <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" hidden>
             <button class="editor-btn editor-btn-default" id="undo-btn" disabled>↩ 撤销</button>
             <button class="editor-btn editor-btn-default" id="redo-btn" disabled>↪ 重做</button>
         </div>
@@ -454,6 +454,7 @@ let canvas = null;
 let ctx = null;
 let history = [];
 let historyIndex = -1;
+const MAX_HISTORY = 15;
 let currentFilter = 'none';
 let currentEffect = '';
 let effects = {
@@ -594,6 +595,8 @@ function initCanvas(image) {
     canvas.width = image.width;
     canvas.height = image.height;
     ctx.drawImage(image, 0, 0);
+    history = [];
+    historyIndex = -1;
     
     $('canvas-area').querySelector('.placeholder').hidden = true;
     canvas.hidden = false;
@@ -617,6 +620,7 @@ function saveHistory(action) {
         action: action,
         time: new Date().toLocaleTimeString()
     });
+    if (history.length > MAX_HISTORY) history.shift();
     
     historyIndex = history.length - 1;
     updateHistoryUI();
@@ -747,17 +751,24 @@ $('open-btn').addEventListener('click', () => {
 $('file-input').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        const img = new Image();
-        img.onload = () => {
-            originalImage = img;
-            initCanvas(img);
-        };
-        img.src = ev.target.result;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 25 * 1024 * 1024) {
+        alert('请选择 25 MB 以内的 JPG、PNG 或 WebP 图片');
+        e.target.value = '';
+        return;
+    }
+    const sourceUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+        URL.revokeObjectURL(sourceUrl);
+        if (img.width * img.height > 30000000) {
+            alert('图片超过 3000 万像素，为防止编辑器卡死已停止读取');
+            return;
+        }
+        originalImage = img;
+        initCanvas(img);
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => { URL.revokeObjectURL(sourceUrl); alert('图片读取失败或文件已损坏'); };
+    img.src = sourceUrl;
 });
 
 $('undo-btn').addEventListener('click', () => {
@@ -805,7 +816,7 @@ $('download-btn').addEventListener('click', () => {
         a.href = url;
         a.download = 'edited_' + Date.now() + '.' + ext.toLowerCase();
         a.click();
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }, format, quality);
 });
 

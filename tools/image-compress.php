@@ -28,7 +28,11 @@ include '_header.php';
             let resultBlob = null;
             let resultName = 'compressed';
             let resultExt = 'jpg';
+            let sourceUrl = '';
+            let previewUrl = '';
             const $ = id => document.getElementById(id);
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            function revoke(url) { if (url) URL.revokeObjectURL(url); }
 
             $('quality').addEventListener('input', function() {
                 $('qVal').textContent = this.value;
@@ -37,16 +41,30 @@ include '_header.php';
             $('file').addEventListener('change', function(e) {
                 const f = e.target.files[0];
                 if (!f) return;
-                const reader = new FileReader();
-                reader.onload = function(ev) {
-                    const img = new Image();
-                    img.onload = function() {
-                        originalImage = img;
-                        $('info').textContent = '原图：' + img.width + ' × ' + img.height + '，文件大小：' + (f.size / 1024).toFixed(2) + ' KB';
-                    };
-                    img.src = ev.target.result;
+                if (!allowedTypes.includes(f.type) || f.size > 40 * 1024 * 1024) {
+                    $('info').textContent = '仅支持 40 MB 以内的 JPG、PNG 或 WebP 图片。';
+                    e.target.value = '';
+                    return;
+                }
+                revoke(sourceUrl);
+                revoke(previewUrl);
+                previewUrl = '';
+                resultBlob = null;
+                $('preview').textContent = '（预览将在此显示）';
+                sourceUrl = URL.createObjectURL(f);
+                const img = new Image();
+                img.onload = function() {
+                    if (img.width * img.height > 50000000) {
+                        originalImage = null;
+                        $('info').textContent = '图片超过 5000 万像素，为防止浏览器卡死已停止读取。';
+                        return;
+                    }
+                    originalImage = img;
+                    resultName = (f.name.replace(/\.[^.]+$/, '') || 'compressed') + '-compressed';
+                    $('info').textContent = '原图：' + img.width + ' × ' + img.height + '，文件大小：' + (f.size / 1024).toFixed(2) + ' KB';
                 };
-                reader.readAsDataURL(f);
+                img.onerror = function() { originalImage = null; $('info').textContent = '图片读取失败或文件已损坏。'; };
+                img.src = sourceUrl;
             });
 
             function doCompress() {
@@ -58,16 +76,20 @@ include '_header.php';
                 canvas.width = originalImage.width;
                 canvas.height = originalImage.height;
                 const ctx = canvas.getContext('2d');
-                if (fmt === 'image/jpeg') ctx.fillStyle = '#ffffff';
+                if (fmt === 'image/jpeg') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
                 ctx.drawImage(originalImage, 0, 0);
                 canvas.toBlob(function(blob) {
                     if (!blob) return alert('压缩失败');
                     resultBlob = blob;
-                    const url = URL.createObjectURL(blob);
+                    revoke(previewUrl);
+                    previewUrl = URL.createObjectURL(blob);
                     const p = $('preview');
-                    p.innerHTML = '';
+                    p.replaceChildren();
                     const img = document.createElement('img');
-                    img.src = url;
+                    img.src = previewUrl;
                     img.style.maxWidth = '100%';
                     p.appendChild(img);
                     $('info').textContent = '压缩后：' + (blob.size / 1024).toFixed(2) + ' KB（质量 ' + q + '）';
@@ -77,9 +99,10 @@ include '_header.php';
             function downloadImage() {
                 if (!resultBlob) return alert('请先生成预览');
                 const a = document.createElement('a');
-                a.href = URL.createObjectURL(resultBlob);
+                a.href = previewUrl;
                 a.download = resultName + '.' + resultExt;
                 a.click();
             }
+            window.addEventListener('beforeunload', function() { revoke(sourceUrl); revoke(previewUrl); });
             </script>
 <?php include '_footer.php'; ?>
