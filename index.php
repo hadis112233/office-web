@@ -349,6 +349,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">Markdown 预览</div>
                         <div class="tool-desc">实时预览 Markdown 文本</div>
                     </a>
+                    <a class="tool-card" href="tools/json-formatter.php">
+                        <div class="tool-icon">🧱</div>
+                        <div class="tool-name">JSON 格式化</div>
+                        <div class="tool-desc">格式化、压缩、校验与错误定位</div>
+                    </a>
                 </div>
             </section>
 
