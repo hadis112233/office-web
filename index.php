@@ -326,7 +326,7 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                     <a class="tool-card" href="tools/image-watermark.php">
                         <div class="tool-icon">💧</div>
                         <div class="tool-name">图片加水印</div>
-                        <div class="tool-desc">为图片添加文字或图片水印</div>
+                        <div class="tool-desc">为图片添加右下角文字水印</div>
                     </a>
                     <a class="tool-card" href="tools/image-base64.php">
                         <div class="tool-icon">🔡</div>
