@@ -83,6 +83,8 @@ jobs:
             | grep --quiet 'MAX_POINTS=100000'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/screen-recorder.php \
             | grep --quiet 'MAX_RECORDING_BYTES=500'
+          curl --fail --silent --show-error http://127.0.0.1:8080/tools/image-edit.php \
+            | grep --quiet 'MAX_HISTORY_BYTES = 128'
 
           printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
             | base64 --decode > idcard-smoke.png

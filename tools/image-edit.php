@@ -1,6 +1,6 @@
 <?php
 $title = '图片P图';
-$desc = '在线图片编辑工具：滤镜、色彩调节、裁剪、旋转翻转、特效处理、边框、多格式导出';
+$desc = '在线图片编辑工具：滤镜、色彩调节、裁剪、旋转翻转、特效处理、边框、多格式导出；图片只在浏览器中处理，不会上传服务器';
 include '_header.php';
 ?>
 
@@ -455,6 +455,13 @@ let ctx = null;
 let history = [];
 let historyIndex = -1;
 const MAX_HISTORY = 15;
+const MAX_HISTORY_BYTES = 128 * 1024 * 1024;
+const MAX_CANVAS_PIXELS = 30000000;
+const MAX_CANVAS_SIDE = 16384;
+let historyBytes = 0;
+let historyBusy = false;
+let controlStates = [];
+let imageLoadVersion = 0;
 let currentFilter = 'none';
 let currentEffect = '';
 let effects = {
@@ -595,56 +602,159 @@ function initCanvas(image) {
     canvas.width = image.width;
     canvas.height = image.height;
     ctx.drawImage(image, 0, 0);
-    history = [];
-    historyIndex = -1;
+    clearHistory();
     
     $('canvas-area').querySelector('.placeholder').hidden = true;
     canvas.hidden = false;
     
-    saveHistory('打开图片');
     updateInfo(image);
-    
     $('download-btn').disabled = false;
     $('reset-btn').disabled = false;
+    saveHistory('打开图片');
 }
 
-function saveHistory(action) {
-    if (!canvas) return;
-    
-    if (historyIndex < history.length - 1) {
-        history = history.slice(0, historyIndex + 1);
+function validCanvasSize(width, height) {
+    return Number.isInteger(width) && Number.isInteger(height) && width > 0 && height > 0
+        && width <= MAX_CANVAS_SIDE && height <= MAX_CANVAS_SIDE && width * height <= MAX_CANVAS_PIXELS;
+}
+
+function canvasBlob() {
+    return new Promise((resolve, reject) => canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error('浏览器无法保存历史快照')),
+        'image/png'
+    ));
+}
+
+function clearHistory() {
+    for (const item of history) item.blob = null;
+    history = [];
+    historyIndex = -1;
+    historyBytes = 0;
+}
+
+function setHistoryBusy(busy) {
+    const controls = Array.from(document.querySelectorAll('.editor-header button, .editor-header input, .editor-header select'));
+    if (busy) {
+        historyBusy = true;
+        controlStates = controls.map(control => [control, control.disabled]);
+        controls.forEach(control => { control.disabled = true; });
+        return;
     }
-    
-    history.push({
-        data: canvas.toDataURL(),
-        action: action,
-        time: new Date().toLocaleTimeString()
-    });
-    if (history.length > MAX_HISTORY) history.shift();
-    
-    historyIndex = history.length - 1;
-    updateHistoryUI();
+    for (const [control, disabled] of controlStates) control.disabled = disabled;
+    controlStates = [];
+    historyBusy = false;
     updateUndoRedoButtons();
+}
+
+function trimHistory() {
+    while (history.length > 1 && (history.length > MAX_HISTORY || historyBytes > MAX_HISTORY_BYTES)) {
+        const removed = history.shift();
+        historyBytes -= removed.blob ? removed.blob.size : 0;
+        removed.blob = null;
+        historyIndex -= 1;
+    }
+}
+
+async function saveHistory(action) {
+    if (!canvas || historyBusy) return false;
+    setHistoryBusy(true);
+    try {
+        const blob = await canvasBlob();
+        if (historyIndex < history.length - 1) {
+            const removed = history.splice(historyIndex + 1);
+            for (const item of removed) {
+                historyBytes -= item.blob ? item.blob.size : 0;
+                item.blob = null;
+            }
+        }
+        history.push({
+            blob,
+            width: canvas.width,
+            height: canvas.height,
+            action: String(action).slice(0, 80),
+            time: new Date().toLocaleTimeString()
+        });
+        historyBytes += blob.size;
+        historyIndex = history.length - 1;
+        trimHistory();
+        updateHistoryUI();
+        return true;
+    } catch (error) {
+        alert(error.message || '无法保存撤销历史');
+        return false;
+    } finally {
+        setHistoryBusy(false);
+    }
+}
+
+async function decodeHistoryBlob(blob) {
+    if ('createImageBitmap' in window) {
+        try {
+            return await createImageBitmap(blob);
+        } catch (error) {
+            // 部分旧浏览器声明了 API，却无法解码某些 PNG。
+        }
+    }
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+        image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('历史快照已损坏')); };
+        image.src = url;
+    });
+}
+
+async function restoreHistory(nextIndex) {
+    if (historyBusy || nextIndex < 0 || nextIndex >= history.length) return;
+    const item = history[nextIndex];
+    if (!item.blob) return;
+    setHistoryBusy(true);
+    let image = null;
+    try {
+        image = await decodeHistoryBlob(item.blob);
+        canvas.width = item.width;
+        canvas.height = item.height;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0);
+        historyIndex = nextIndex;
+        $('info-current-size').textContent = canvas.width + ' × ' + canvas.height;
+        updateHistoryUI();
+    } catch (error) {
+        alert(error.message || '无法恢复历史快照');
+    } finally {
+        if (image && typeof image.close === 'function') image.close();
+        setHistoryBusy(false);
+    }
 }
 
 function updateHistoryUI() {
     const list = $('history-list');
     if (history.length === 0) {
-        list.innerHTML = '暂无操作记录';
+        list.textContent = '暂无操作记录';
         return;
     }
-    
-    list.innerHTML = history.map((item, idx) => {
-        const active = idx === historyIndex ? ' style="color:#6366f1;font-weight:bold;"' : '';
-        return `<div class="history-item"${active}>${item.time} - ${item.action}</div>`;
-    }).join('');
-    
+    const fragment = document.createDocumentFragment();
+    history.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'history-item';
+        row.textContent = item.time + ' - ' + item.action;
+        if (index === historyIndex) {
+            row.style.color = '#6366f1';
+            row.style.fontWeight = 'bold';
+        }
+        fragment.appendChild(row);
+    });
+    const summary = document.createElement('div');
+    summary.className = 'history-item';
+    summary.textContent = '历史占用：' + (historyBytes / 1024 / 1024).toFixed(1) + ' MB / 128 MB';
+    fragment.appendChild(summary);
+    list.replaceChildren(fragment);
     list.scrollTop = list.scrollHeight;
 }
 
 function updateUndoRedoButtons() {
-    $('undo-btn').disabled = historyIndex <= 0;
-    $('redo-btn').disabled = historyIndex >= history.length - 1;
+    $('undo-btn').disabled = historyBusy || historyIndex <= 0;
+    $('redo-btn').disabled = historyBusy || historyIndex >= history.length - 1;
 }
 
 function applyFilters() {
@@ -749,6 +859,7 @@ $('open-btn').addEventListener('click', () => {
 });
 
 $('file-input').addEventListener('change', (e) => {
+    const loadVersion = ++imageLoadVersion;
     const file = e.target.files[0];
     if (!file) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 25 * 1024 * 1024) {
@@ -760,47 +871,32 @@ $('file-input').addEventListener('change', (e) => {
     const img = new Image();
     img.onload = () => {
         URL.revokeObjectURL(sourceUrl);
-        if (img.width * img.height > 30000000) {
-            alert('图片超过 3000 万像素，为防止编辑器卡死已停止读取');
+        if (loadVersion !== imageLoadVersion) return;
+        if (!validCanvasSize(img.naturalWidth, img.naturalHeight)) {
+            e.target.value = '';
+            alert('图片单边不能超过 16384 像素，总计不能超过 3000 万像素');
             return;
         }
         originalImage = img;
         initCanvas(img);
     };
-    img.onerror = () => { URL.revokeObjectURL(sourceUrl); alert('图片读取失败或文件已损坏'); };
+    img.onerror = () => {
+        URL.revokeObjectURL(sourceUrl);
+        if (loadVersion !== imageLoadVersion) return;
+        e.target.value = '';
+        alert('图片读取失败或文件已损坏');
+    };
     img.src = sourceUrl;
 });
 
-$('undo-btn').addEventListener('click', () => {
+$('undo-btn').addEventListener('click', async () => {
     if (historyIndex <= 0) return;
-    
-    historyIndex--;
-    const item = history[historyIndex];
-    const img = new Image();
-    img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        updateUndoRedoButtons();
-        updateHistoryUI();
-    };
-    img.src = item.data;
+    await restoreHistory(historyIndex - 1);
 });
 
-$('redo-btn').addEventListener('click', () => {
+$('redo-btn').addEventListener('click', async () => {
     if (historyIndex >= history.length - 1) return;
-    
-    historyIndex++;
-    const item = history[historyIndex];
-    const img = new Image();
-    img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        updateUndoRedoButtons();
-        updateHistoryUI();
-    };
-    img.src = item.data;
+    await restoreHistory(historyIndex + 1);
 });
 
 $('download-btn').addEventListener('click', () => {
@@ -811,6 +907,10 @@ $('download-btn').addEventListener('click', () => {
     const quality = format === 'image/jpeg' ? 0.92 : 0.95;
     
     canvas.toBlob((blob) => {
+        if (!blob) {
+            alert('浏览器无法生成下载图片');
+            return;
+        }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -933,11 +1033,11 @@ $('crop-btn').addEventListener('click', () => {
 $('size-btn').addEventListener('click', () => {
     if (!canvas || !ctx) return;
     
-    const width = parseInt(prompt('请输入宽度（像素）：', canvas.width));
-    const height = parseInt(prompt('请输入高度（像素）：', canvas.height));
+    const width = Number.parseInt(prompt('请输入宽度（像素）：', canvas.width), 10);
+    const height = Number.parseInt(prompt('请输入高度（像素）：', canvas.height), 10);
     
-    if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
-        alert('无效的尺寸');
+    if (!validCanvasSize(width, height)) {
+        alert('尺寸无效：单边不能超过 16384 像素，总计不能超过 3000 万像素');
         return;
     }
     
@@ -958,10 +1058,15 @@ $('size-btn').addEventListener('click', () => {
 
 $('zoom-in-btn').addEventListener('click', () => {
     if (!canvas || !ctx) return;
-    
+    const width = Math.round(canvas.width * 1.2);
+    const height = Math.round(canvas.height * 1.2);
+    if (!validCanvasSize(width, height)) {
+        alert('继续放大会超过 3000 万像素或 16384 像素单边限制');
+        return;
+    }
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width * 1.2;
-    tempCanvas.height = canvas.height * 1.2;
+    tempCanvas.width = width;
+    tempCanvas.height = height;
     const tempCtx = tempCanvas.getContext('2d');
     
     tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
@@ -975,10 +1080,11 @@ $('zoom-in-btn').addEventListener('click', () => {
 
 $('zoom-out-btn').addEventListener('click', () => {
     if (!canvas || !ctx) return;
-    
+    const width = Math.max(1, Math.round(canvas.width * 0.8));
+    const height = Math.max(1, Math.round(canvas.height * 0.8));
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width * 0.8;
-    tempCanvas.height = canvas.height * 0.8;
+    tempCanvas.width = width;
+    tempCanvas.height = height;
     const tempCtx = tempCanvas.getContext('2d');
     
     tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
@@ -1050,6 +1156,21 @@ $('border-btn').addEventListener('click', () => {
     }
     applyFilters();
     saveHistory(effects.borderWidth > 0 ? '添加边框' : '移除边框');
+});
+
+for (const [id, action] of [
+    ['brightness', '调整亮度'],
+    ['contrast', '调整对比度'],
+    ['saturation', '调整饱和度'],
+    ['hue', '调整色调'],
+    ['border-width', '调整边框宽度']
+]) {
+    $(id).addEventListener('change', () => saveHistory(action));
+}
+
+window.addEventListener('beforeunload', () => {
+    imageLoadVersion += 1;
+    clearHistory();
 });
 </script>
 
