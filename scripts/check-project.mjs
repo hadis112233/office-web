@@ -103,7 +103,7 @@ for (const [relative, markers] of documentTools) {
 
 const productivityTools = new Map([
   ['tools/signature-pad.php', ["addEventListener('pointerdown'", 'ResizeObserver', 'getCoalescedEvents', 'MAX_STROKES=500', 'MAX_POINTS=100000', 'normalizedPoint', 'clearedStrokes', 'strokes.pop()', 'toBlob', '签名不会上传服务器']],
-  ['tools/screen-recorder.php', ['getDisplayMedia', 'MediaRecorder.isTypeSupported', 'seconds>=3600', 'URL.revokeObjectURL', '录制内容不会上传服务器']],
+  ['tools/screen-recorder.php', ['getDisplayMedia', 'MediaRecorder.isTypeSupported', 'MAX_RECORDING_BYTES=500*1024*1024', 'MAX_RECORDING_SECONDS=3600', 'videoBitsPerSecond', "addEventListener('error'", "stop('size-limit')", 'releaseResult', "includes('mp4')", 'URL.revokeObjectURL', '录制内容不会上传服务器']],
   ['tools/pomodoro.php', ['deadline-Date.now()', 'office_pomodoro_stats', 'Notification.requestPermission', 'setPhase(phase===', 'completed']],
 ]);
 for (const [relative, markers] of productivityTools) {
@@ -155,6 +155,8 @@ for (const marker of [
   'tools/pdf-to-text.php',
   'tools/signature-pad.php',
   'MAX_POINTS=100000',
+  'tools/screen-recorder.php',
+  'MAX_RECORDING_BYTES=500',
   'api/media.php?action=process',
   'media-smoke.mp4',
   'idcard-smoke.png',
