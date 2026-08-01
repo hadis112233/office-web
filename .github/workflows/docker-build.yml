@@ -77,6 +77,8 @@ jobs:
             | grep --quiet 'PDF 添加页码'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-metadata.php \
             | grep --quiet 'PDF 文档属性'
+          curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-to-text.php \
+            | grep --quiet 'PDF 提取文字'
 
           docker exec office-web-smoke ffmpeg -hide_banner -loglevel error -y \
             -f lavfi -i testsrc=size=320x240:rate=10 -t 1 \
