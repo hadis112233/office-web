@@ -17,6 +17,9 @@ function walk(directory) {
 
 const files = walk(root);
 const errors = [];
+if (fs.existsSync(path.join(root, 'tools', 'unit-convert.php'))) {
+  errors.push('tools/unit-convert.php：旧版重复单位换算页面仍未移除');
+}
 
 for (const file of files.filter((name) => name.endsWith('.js'))) {
   const source = fs.readFileSync(file, 'utf8');
@@ -142,6 +145,8 @@ for (const marker of [
   'cache-from: type=gha',
   'cache-to: type=gha,mode=max,ignore-error=true',
   'api/health.php',
+  'api/media.php?action=process',
+  'media-smoke.mp4',
   'docker rm --force office-web-smoke',
 ]) {
   if (!dockerWorkflow.includes(marker)) errors.push(`Docker 工作流：构建安全或运行检查缺少 ${marker}`);
@@ -204,6 +209,19 @@ for (const marker of ['api/exchange.php', 'rateStatus', '本机缓存', '内置�
 }
 const mainScript = fs.readFileSync(path.join(root, 'js', 'main.js'), 'utf8');
 if (mainScript.includes('api.open-meteo.com')) errors.push('js/main.js：仍包含已废弃的固定北京天气请求');
+
+const mediaApi = fs.readFileSync(path.join(root, 'api', 'media.php'), 'utf8');
+for (const marker of ['MAX_VIDEO_DURATION', 'MAX_VIDEO_PIXELS', 'MAX_OUTPUT_BYTES', 'RATE_MAX_ATTEMPTS', 'enforce_media_rate', "media_binary('ffprobe')", '--kill-after=5s 115s', '-fs ', '[124, 137]']) {
+  if (!mediaApi.includes(marker)) errors.push(`api/media.php：视频资源保护缺少 ${marker}`);
+}
+const healthApi = fs.readFileSync(path.join(root, 'api', 'health.php'), 'utf8');
+for (const marker of ["'ffprobe'", "'timeout'", "glob($mediaDir . '/media_*')", 'time() - 60 * 60']) {
+  if (!healthApi.includes(marker)) errors.push(`api/health.php：视频依赖健康检查缺少 ${marker}`);
+}
+const videoTool = fs.readFileSync(path.join(root, 'tools', 'video-process.php'), 'utf8');
+for (const marker of ['xhr.timeout=250000', 'xhr.ontimeout']) {
+  if (!videoTool.includes(marker)) errors.push(`tools/video-process.php：视频请求超时反馈缺少 ${marker}`);
+}
 
 const transferApi = fs.readFileSync(path.join(root, 'api', 'transfer.php'), 'utf8');
 for (const marker of ["$ttl = 10 * 60", "random_int(0, 999999)", 'enforceAttemptLimit', 'validStoredName']) {
