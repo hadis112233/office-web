@@ -277,6 +277,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">PDF 添加页码</div>
                         <div class="tool-desc">自定义范围、编号和页码位置</div>
                     </a>
+                    <a class="tool-card" href="tools/pdf-metadata.php">
+                        <div class="tool-icon">🏷️</div>
+                        <div class="tool-name">PDF 文档属性</div>
+                        <div class="tool-desc">查看、编辑或清空常见元数据</div>
+                    </a>
                     <a class="tool-card" href="tools/images-to-pdf.php">
                         <div class="tool-icon">🖼️</div>
                         <div class="tool-name">图片转 PDF</div>
