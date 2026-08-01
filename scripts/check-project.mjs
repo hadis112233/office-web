@@ -157,6 +157,8 @@ for (const marker of [
   'MAX_POINTS=100000',
   'tools/screen-recorder.php',
   'MAX_RECORDING_BYTES=500',
+  'tools/image-edit.php',
+  'MAX_HISTORY_BYTES = 128',
   'api/media.php?action=process',
   'media-smoke.mp4',
   'idcard-smoke.png',
@@ -303,7 +305,7 @@ for (const marker of ['selected.length>20', '80000000', '30000/width', 'resultFo
 const hardenedImageTools = new Map([
   ['tools/image-compress.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'fillRect(0, 0, canvas.width, canvas.height)', 'beforeunload', 'revoke(previewUrl)']],
   ['tools/image-format.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'beforeunload', 'revoke(previewUrl)']],
-  ['tools/image-edit.php', ['MAX_HISTORY = 15', '25 * 1024 * 1024', '30000000', 'URL.revokeObjectURL(sourceUrl)', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/image-edit.php', ['MAX_HISTORY = 15', 'MAX_HISTORY_BYTES = 128 * 1024 * 1024', 'MAX_CANVAS_PIXELS = 30000000', 'MAX_CANVAS_SIDE = 16384', '25 * 1024 * 1024', 'canvasBlob', 'createImageBitmap', 'restoreHistory', 'validCanvasSize', 'historyBytes', 'URL.revokeObjectURL(sourceUrl)', 'setTimeout(() => URL.revokeObjectURL(url), 1000)', '图片只在浏览器中处理']],
   ['tools/image-resize.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', 'beforeunload', '文件只在浏览器中处理']],
   ['tools/image-crop.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', '裁剪范围不能超出原图', 'beforeunload', '文件只在浏览器中处理']],
   ['tools/image-watermark.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', 'safeFontSize', 'beforeunload', '文件只在浏览器中处理']],
@@ -313,6 +315,10 @@ for (const [relative, markers] of hardenedImageTools) {
   for (const marker of markers) {
     if (!source.includes(marker)) errors.push(`${relative}：图片内存保护缺少 ${marker}`);
   }
+}
+const imageEditTool = fs.readFileSync(path.join(root, 'tools', 'image-edit.php'), 'utf8');
+if (imageEditTool.includes('canvas.toDataURL()') || imageEditTool.includes('data: canvas.toDataURL')) {
+  errors.push('tools/image-edit.php：编辑历史仍在使用 Base64 整图快照');
 }
 for (const relative of ['tools/image-resize.php', 'tools/image-crop.php', 'tools/image-watermark.php']) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
