@@ -79,6 +79,8 @@ jobs:
             | grep --quiet 'PDF 文档属性'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-to-text.php \
             | grep --quiet 'PDF 提取文字'
+          curl --fail --silent --show-error http://127.0.0.1:8080/tools/signature-pad.php \
+            | grep --quiet 'MAX_POINTS=100000'
 
           printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
             | base64 --decode > idcard-smoke.png

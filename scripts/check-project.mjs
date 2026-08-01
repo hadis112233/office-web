@@ -102,7 +102,7 @@ for (const [relative, markers] of documentTools) {
 }
 
 const productivityTools = new Map([
-  ['tools/signature-pad.php', ["addEventListener('pointerdown'", 'ResizeObserver', 'toBlob', '签名不会上传服务器']],
+  ['tools/signature-pad.php', ["addEventListener('pointerdown'", 'ResizeObserver', 'getCoalescedEvents', 'MAX_STROKES=500', 'MAX_POINTS=100000', 'normalizedPoint', 'clearedStrokes', 'strokes.pop()', 'toBlob', '签名不会上传服务器']],
   ['tools/screen-recorder.php', ['getDisplayMedia', 'MediaRecorder.isTypeSupported', 'seconds>=3600', 'URL.revokeObjectURL', '录制内容不会上传服务器']],
   ['tools/pomodoro.php', ['deadline-Date.now()', 'office_pomodoro_stats', 'Notification.requestPermission', 'setPhase(phase===', 'completed']],
 ]);
@@ -111,6 +111,10 @@ for (const [relative, markers] of productivityTools) {
   for (const marker of markers) {
     if (!source.includes(marker)) errors.push(`${relative}：效率演示功能缺少 ${marker}`);
   }
+}
+const signatureTool = fs.readFileSync(path.join(root, 'tools', 'signature-pad.php'), 'utf8');
+if (signatureTool.includes('canvas.toDataURL') || signatureTool.includes('history.push')) {
+  errors.push('tools/signature-pad.php：签名撤销仍在复制整张 Base64 画布');
 }
 
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
@@ -149,6 +153,8 @@ for (const marker of [
   'tools/pdf-page-numbers.php',
   'tools/pdf-metadata.php',
   'tools/pdf-to-text.php',
+  'tools/signature-pad.php',
+  'MAX_POINTS=100000',
   'api/media.php?action=process',
   'media-smoke.mp4',
   'idcard-smoke.png',
