@@ -272,6 +272,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">PDF 加水印</div>
                         <div class="tool-desc">为 PDF 添加文字水印</div>
                     </a>
+                    <a class="tool-card" href="tools/pdf-page-numbers.php">
+                        <div class="tool-icon">🔢</div>
+                        <div class="tool-name">PDF 添加页码</div>
+                        <div class="tool-desc">自定义范围、编号和页码位置</div>
+                    </a>
                     <a class="tool-card" href="tools/images-to-pdf.php">
                         <div class="tool-icon">🖼️</div>
                         <div class="tool-name">图片转 PDF</div>
