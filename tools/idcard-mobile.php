@@ -199,7 +199,7 @@
                 <div class="upload-icon">🪪</div>
                 <div class="upload-text">点击拍摄正面</div>
                 <div class="upload-hint">支持拍照或从相册选择</div>
-                <input type="file" id="frontInput" accept="image/*" capture="environment">
+                <input type="file" id="frontInput" accept="image/jpeg,image/png" capture="environment">
             </label>
         </div>
 
@@ -209,7 +209,7 @@
                 <div class="upload-icon">📋</div>
                 <div class="upload-text">点击拍摄反面</div>
                 <div class="upload-hint">支持拍照或从相册选择</div>
-                <input type="file" id="backInput" accept="image/*" capture="environment">
+                <input type="file" id="backInput" accept="image/jpeg,image/png" capture="environment">
             </label>
         </div>
 
@@ -245,6 +245,11 @@
     <script>
     let frontFile = null;
     let backFile = null;
+    const allowedImageTypes = new Set(['image/jpeg', 'image/png']);
+    const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+    const MAX_IMAGE_PIXELS = 40000000;
+    const MAX_IMAGE_SIDE = 16384;
+    const previewUrls = { front: '', back: '' };
     const uploadSession = new URLSearchParams(window.location.search).get('session') || '';
     const sessionValid = /^[a-f0-9]{32}$/.test(uploadSession);
 
@@ -256,33 +261,87 @@
         $('status').textContent = '配对码无效或已丢失，请重新扫描电脑页面上的二维码';
     }
 
-    $('frontInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            frontFile = file;
-            showPreview(file, 'frontPreview', '正面');
-            checkReady();
-        }
-    });
+    function showStatus(message, type) {
+        const status = $('status');
+        status.hidden = false;
+        status.className = 'status ' + type;
+        status.textContent = message;
+    }
 
-    $('backInput').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            backFile = file;
-            showPreview(file, 'backPreview', '反面');
-            checkReady();
-        }
-    });
+    function inspectImage(file) {
+        return new Promise((resolve, reject) => {
+            const url = URL.createObjectURL(file);
+            const image = new Image();
+            image.onload = () => {
+                const width = image.naturalWidth;
+                const height = image.naturalHeight;
+                URL.revokeObjectURL(url);
+                if (width < 1 || height < 1 || width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE || width * height > MAX_IMAGE_PIXELS) {
+                    reject(new Error('图片尺寸过大，单边最多 16384 像素且总计不超过 4000 万像素'));
+                    return;
+                }
+                resolve();
+            };
+            image.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('图片已损坏或浏览器无法读取'));
+            };
+            image.src = url;
+        });
+    }
 
-    function showPreview(file, previewId, label) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = $(previewId);
-            preview.className = 'preview-item';
-            preview.innerHTML = `<img src="${e.target.result}" />
-                                <div class="preview-label">${label}</div>`;
-        };
-        reader.readAsDataURL(file);
+    async function selectImage(file, side) {
+        if (!allowedImageTypes.has(file.type)) throw new Error('仅支持 JPG 或 PNG 图片');
+        if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) throw new Error('单张图片不能超过 12 MB');
+        await inspectImage(file);
+        if (side === 'front') frontFile = file;
+        else backFile = file;
+        showPreview(file, side);
+        checkReady();
+    }
+
+    for (const side of ['front', 'back']) {
+        $(side + 'Input').addEventListener('change', async function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                await selectImage(file, side);
+                if (sessionValid) $('status').hidden = true;
+            } catch (error) {
+                event.target.value = '';
+                showStatus(error.message, 'error');
+            }
+        });
+    }
+
+    function showPreview(file, side) {
+        if (previewUrls[side]) URL.revokeObjectURL(previewUrls[side]);
+        previewUrls[side] = URL.createObjectURL(file);
+        const preview = $(side + 'Preview');
+        const image = new Image();
+        image.src = previewUrls[side];
+        image.alt = side === 'front' ? '身份证正面预览' : '身份证反面预览';
+        const label = document.createElement('div');
+        label.className = 'preview-label';
+        label.textContent = side === 'front' ? '正面' : '反面';
+        preview.className = 'preview-item';
+        preview.replaceChildren(image, label);
+    }
+
+    function clearSelection() {
+        frontFile = null;
+        backFile = null;
+        for (const side of ['front', 'back']) {
+            if (previewUrls[side]) URL.revokeObjectURL(previewUrls[side]);
+            previewUrls[side] = '';
+            const preview = $(side + 'Preview');
+            preview.className = 'preview-item empty';
+            const label = document.createElement('span');
+            label.textContent = side === 'front' ? '正面' : '反面';
+            preview.replaceChildren(label);
+            $(side + 'Input').value = '';
+        }
+        checkReady();
     }
 
     function checkReady() {
@@ -290,15 +349,7 @@
     }
 
     $('clearBtn').addEventListener('click', function() {
-        frontFile = null;
-        backFile = null;
-        $('frontPreview').className = 'preview-item empty';
-        $('frontPreview').innerHTML = '<span>正面</span>';
-        $('backPreview').className = 'preview-item empty';
-        $('backPreview').innerHTML = '<span>反面</span>';
-        $('frontInput').value = '';
-        $('backInput').value = '';
-        checkReady();
+        clearSelection();
         if (sessionValid) {
             $('status').hidden = true;
         } else {
@@ -347,17 +398,7 @@
         progressBar.hidden = true;
         
         setTimeout(function() {
-            frontFile = null;
-            backFile = null;
-            const fp = $('frontPreview');
-            const bp = $('backPreview');
-            fp.className = 'preview-item empty';
-            fp.innerHTML = '<span>正面</span>';
-            bp.className = 'preview-item empty';
-            bp.innerHTML = '<span>反面</span>';
-            $('frontInput').value = '';
-            $('backInput').value = '';
-            checkReady();
+            clearSelection();
             status.textContent = '📤 等待新照片...';
             status.className = 'status info';
         }, 3000);
@@ -365,7 +406,8 @@
 
     async function uploadFile(file, type) {
         if (!file || file.size <= 0) throw new Error('请选择有效图片');
-        if (file.size > 12 * 1024 * 1024) throw new Error('单张图片不能超过 12 MB');
+        if (!allowedImageTypes.has(file.type)) throw new Error('仅支持 JPG 或 PNG 图片');
+        if (file.size > MAX_IMAGE_BYTES) throw new Error('单张图片不能超过 12 MB');
         const formData = new FormData();
         formData.append('file', file);
         formData.append('type', type);
@@ -373,11 +415,22 @@
         // 加时间戳防止微信浏览器缓存
         formData.append('_ts', Date.now());
 
-        const response = await fetch('../api/upload.php?action=upload&_=' + Date.now(), {
-            method: 'POST',
-            body: formData,
-            cache: 'no-store'
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000);
+        let response;
+        try {
+            response = await fetch('../api/upload.php?action=upload&_=' + Date.now(), {
+                method: 'POST',
+                body: formData,
+                cache: 'no-store',
+                signal: controller.signal
+            });
+        } catch (error) {
+            if (error.name === 'AbortError') throw new Error('上传超过 60 秒，请检查网络后重试');
+            throw error;
+        } finally {
+            clearTimeout(timeout);
+        }
 
         if (!response.ok) {
             throw new Error('网络错误 ' + response.status);
@@ -389,6 +442,9 @@
         }
         return result;
     }
+    window.addEventListener('beforeunload', function() {
+        for (const url of Object.values(previewUrls)) if (url) URL.revokeObjectURL(url);
+    });
     </script>
 </body>
 </html>

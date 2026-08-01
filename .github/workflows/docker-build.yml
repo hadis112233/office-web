@@ -80,6 +80,25 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-to-text.php \
             | grep --quiet 'PDF 提取文字'
 
+          printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' \
+            | base64 --decode > idcard-smoke.png
+          upload_session=0123456789abcdef0123456789abcdef
+          upload_response=$(curl --fail-with-body --silent --show-error \
+            --form "file=@idcard-smoke.png;type=image/png" \
+            --form "type=front" --form "session=$upload_session" \
+            http://127.0.0.1:8080/api/upload.php?action=upload)
+          echo "$upload_response"
+          upload_filename=$(echo "$upload_response" | jq --raw-output '.filename')
+          test -n "$upload_filename" -a "$upload_filename" != "null"
+          curl --fail --silent --show-error \
+            "http://127.0.0.1:8080/api/upload.php?action=get&session=$upload_session&filename=$upload_filename" \
+            --output idcard-downloaded.png
+          cmp idcard-smoke.png idcard-downloaded.png
+          curl --fail-with-body --silent --show-error \
+            --form "session=$upload_session" --form "filename=$upload_filename" \
+            http://127.0.0.1:8080/api/upload.php?action=delete \
+            | grep --quiet '"ok":true'
+
           docker exec office-web-smoke ffmpeg -hide_banner -loglevel error -y \
             -f lavfi -i testsrc=size=320x240:rate=10 -t 1 \
             -c:v libx264 -pix_fmt yuv420p -movflags +faststart /tmp/media-smoke.mp4

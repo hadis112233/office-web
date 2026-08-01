@@ -151,6 +151,9 @@ for (const marker of [
   'tools/pdf-to-text.php',
   'api/media.php?action=process',
   'media-smoke.mp4',
+  'idcard-smoke.png',
+  'api/upload.php?action=get',
+  'cmp idcard-smoke.png idcard-downloaded.png',
   'docker rm --force office-web-smoke',
 ]) {
   if (!dockerWorkflow.includes(marker)) errors.push(`Docker 工作流：构建安全或运行检查缺少 ${marker}`);
@@ -187,13 +190,15 @@ for (const relative of ['tools/qrcode.php', 'tools/idcard-print.php']) {
 }
 
 const uploadApi = fs.readFileSync(path.join(root, 'api', 'upload.php'), 'utf8');
-for (const marker of ['validSession', "['front', 'back']", "$uploadRoot . $session"]) {
+for (const marker of ['validSession', "['front', 'back']", "$uploadRoot . $session", 'MAX_IMAGE_PIXELS', 'MAX_IMAGE_SIDE', 'RATE_MAX_UPLOADS', 'enforceUploadRate', 'getimagesize', "header('Content-Length: '", '@readfile($filePath)']) {
   if (!uploadApi.includes(marker)) errors.push(`api/upload.php：身份证上传隔离缺少 ${marker}`);
 }
+if (uploadApi.includes('base64_encode($data)')) errors.push('api/upload.php：身份证图片下载仍在使用 Base64 JSON');
 const idcardMobile = fs.readFileSync(path.join(root, 'tools', 'idcard-mobile.php'), 'utf8');
-if (!idcardMobile.includes("formData.append('session', uploadSession)")) {
-  errors.push('tools/idcard-mobile.php：手机上传未携带配对码');
+for (const marker of ["formData.append('session', uploadSession)", 'allowedImageTypes', 'MAX_IMAGE_PIXELS', 'URL.revokeObjectURL', 'controller.abort()', 'clearSelection']) {
+  if (!idcardMobile.includes(marker)) errors.push(`tools/idcard-mobile.php：手机上传保护缺少 ${marker}`);
 }
+if (idcardMobile.includes('readAsDataURL') || idcardMobile.includes('preview.innerHTML')) errors.push('tools/idcard-mobile.php：手机预览仍在使用高内存或动态 HTML 流程');
 const idcardPrint = fs.readFileSync(path.join(root, 'tools', 'idcard-print.php'), 'utf8');
 for (const marker of [
   "searchParams.set('session', uploadSession)",
@@ -205,6 +210,12 @@ for (const marker of [
 }
 for (const marker of ['mobileBaseUrl', 'refreshQr', 'isLoopbackHost', 'mobileAddressStorageKey']) {
   if (!idcardPrint.includes(marker)) errors.push(`tools/idcard-print.php：局域网扫码地址设置缺少 ${marker}`);
+}
+for (const marker of ['validatedImageUrl', 'MAX_IMAGE_PIXELS', 'managedImageUrls', 'imgResponse.blob()', 'canvas.toBlob', 'releaseManagedImages', 'watermark.textContent', 'syncedFiles', 'fetchWithTimeout', 'result.files.slice().reverse()']) {
+  if (!idcardPrint.includes(marker)) errors.push(`tools/idcard-print.php：身份证图片内存或打印保护缺少 ${marker}`);
+}
+if (idcardPrint.includes('reader.readAsDataURL') || idcardPrint.includes("canvas.toDataURL('image/png')") || idcardPrint.includes("placeholder.innerHTML = '<img")) {
+  errors.push('tools/idcard-print.php：身份证打印仍在使用高内存或动态图片 HTML 流程');
 }
 
 const exchangeApi = fs.readFileSync(path.join(root, 'api', 'exchange.php'), 'utf8');

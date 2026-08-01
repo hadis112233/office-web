@@ -4,6 +4,10 @@ header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_IMAGE_PIXELS = 40000000;
+const MAX_IMAGE_SIDE = 16384;
+const RATE_WINDOW = 10 * 60;
+const RATE_MAX_UPLOADS = 20;
 const IMAGE_TTL = 30 * 60;
 
 function respond($data, $status = 200) {
@@ -22,6 +26,41 @@ function validFilename($filename) {
 
 function imageType($filename) {
     return preg_match('/^(front|back)-/', $filename, $matches) ? $matches[1] : null;
+}
+
+function loadRates($path) {
+    if (!is_file($path)) return [];
+    $data = json_decode((string)@file_get_contents($path), true);
+    return is_array($data) ? $data : [];
+}
+
+function saveRates($path, $rates) {
+    try {
+        $suffix = bin2hex(random_bytes(6));
+    } catch (Throwable $error) {
+        $suffix = str_replace('.', '', uniqid('', true));
+    }
+    $temporary = $path . '.tmp-' . $suffix;
+    if (@file_put_contents($temporary, json_encode($rates), LOCK_EX) === false) return false;
+    if (@rename($temporary, $path)) return true;
+    @unlink($temporary);
+    return false;
+}
+
+function enforceUploadRate($uploadRoot) {
+    $now = time();
+    $client = hash('sha256', $_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    $path = $uploadRoot . '.upload-rates.json';
+    $rates = loadRates($path);
+    foreach ($rates as $key => $item) {
+        if (!is_array($item) || $now - (int)($item['start'] ?? 0) > RATE_WINDOW) unset($rates[$key]);
+    }
+    $item = $rates[$client] ?? ['start' => $now, 'count' => 0];
+    if ($now - (int)$item['start'] > RATE_WINDOW) $item = ['start' => $now, 'count' => 0];
+    $item['count'] = (int)$item['count'] + 1;
+    $rates[$client] = $item;
+    if (!saveRates($path, $rates)) respond(['ok' => false, 'error' => '上传限速状态保存失败'], 503);
+    if ($item['count'] > RATE_MAX_UPLOADS) respond(['ok' => false, 'error' => '上传过于频繁，请 10 分钟后再试'], 429);
 }
 
 $action = $_GET['action'] ?? '';
@@ -75,6 +114,7 @@ if ($action === 'upload') {
     if (!isset($_FILES['file'])) {
         respond(['ok' => false, 'error' => '没有收到图片'], 400);
     }
+    enforceUploadRate($uploadRoot);
     $file = $_FILES['file'];
     if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
         respond(['ok' => false, 'error' => '图片上传失败'], 400);
@@ -88,6 +128,12 @@ if ($action === 'upload') {
     $extensionMap = ['image/jpeg' => 'jpg', 'image/png' => 'png'];
     if (!isset($extensionMap[$mime])) {
         respond(['ok' => false, 'error' => '仅支持真实的 JPG 或 PNG 图片'], 415);
+    }
+    $dimensions = @getimagesize($file['tmp_name']);
+    $width = is_array($dimensions) ? (int)($dimensions[0] ?? 0) : 0;
+    $height = is_array($dimensions) ? (int)($dimensions[1] ?? 0) : 0;
+    if ($width < 1 || $height < 1 || $width > MAX_IMAGE_SIDE || $height > MAX_IMAGE_SIDE || $width * $height > MAX_IMAGE_PIXELS) {
+        respond(['ok' => false, 'error' => '图片尺寸过大，单边最多 16384 像素且总计不超过 4000 万像素'], 413);
     }
 
     $type = $_POST['type'] ?? '';
@@ -121,11 +167,15 @@ if ($action === 'get') {
     if (!is_file($filePath)) {
         respond(['ok' => false, 'error' => '图片不存在或已过期'], 404);
     }
-    $data = @file_get_contents($filePath);
-    if ($data === false) {
-        respond(['ok' => false, 'error' => '图片读取失败'], 500);
-    }
-    respond(['ok' => true, 'data' => base64_encode($data)]);
+    $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    $mime = $extension === 'png' ? 'image/png' : 'image/jpeg';
+    $size = @filesize($filePath);
+    if ($size === false) respond(['ok' => false, 'error' => '图片读取失败'], 500);
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . $size);
+    header('Content-Disposition: inline; filename="' . $filename . '"');
+    if (@readfile($filePath) === false) respond(['ok' => false, 'error' => '图片读取失败'], 500);
+    exit;
 }
 
 if ($action === 'delete') {

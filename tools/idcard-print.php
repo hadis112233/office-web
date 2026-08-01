@@ -27,7 +27,7 @@ include '_header.php';
                             <div class="upload-box-icon">📷</div>
                             <div class="upload-box-title">点击上传身份证照片</div>
                             <div class="upload-box-hint">支持 JPG / PNG 格式，可同时上传正反面</div>
-                            <input type="file" id="idcardUpload" accept="image/*" hidden multiple>
+                            <input type="file" id="idcardUpload" accept="image/jpeg,image/png" hidden multiple>
                         </label>
                         <div class="upload-thumb-list" id="uploadedImages"></div>
                     </div>
@@ -43,7 +43,7 @@ include '_header.php';
                 <div class="watermark-settings" id="watermarkSettings" hidden>
                     <div class="wm-item">
                         <label>水印文字</label>
-                        <input type="text" id="watermarkText" placeholder="请输入水印文字，如：仅供XX使用" value="仅供参考">
+                        <input type="text" id="watermarkText" maxlength="120" placeholder="请输入水印文字，如：仅供XX使用" value="仅供参考">
                     </div>
                     <div class="wm-item">
                         <label>水印透明度</label>
@@ -70,9 +70,9 @@ include '_header.php';
                     </div>
                 </div>
                 <div class="btn-row" style="margin-top:20px;">
-                    <button class="btn success" onclick="exportImage()">📥 导出图片</button>
-                    <button class="btn" onclick="printPage()">🖨️ 打印</button>
-                    <button class="btn secondary" onclick="clearImages()">🗑️ 清空</button>
+                    <button class="btn success" id="exportImage" type="button">📥 导出图片</button>
+                    <button class="btn" id="printPage" type="button">🖨️ 打印</button>
+                    <button class="btn secondary" id="clearImages" type="button">🗑️ 清空</button>
                 </div>
             </div>
 
@@ -378,6 +378,11 @@ include '_header.php';
 <script>
 let frontImage = null;
 let backImage = null;
+const allowedImageTypes = new Set(['image/jpeg', 'image/png']);
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
+const MAX_IMAGE_PIXELS = 40000000;
+const MAX_IMAGE_SIDE = 16384;
+const managedImageUrls = new Set();
 const uploadSessionBytes = new Uint8Array(16);
 window.crypto.getRandomValues(uploadSessionBytes);
 const uploadSession = Array.from(uploadSessionBytes, function(byte) {
@@ -386,6 +391,36 @@ const uploadSession = Array.from(uploadSessionBytes, function(byte) {
 const mobileAddressStorageKey = 'office-tools-idcard-mobile-origin';
 
 function $(id) { return document.getElementById(id); }
+
+function validatedImageUrl(blob) {
+    return new Promise((resolve, reject) => {
+        if (!allowedImageTypes.has(blob.type)) return reject(new Error('仅支持 JPG 或 PNG 图片'));
+        if (blob.size <= 0 || blob.size > MAX_IMAGE_BYTES) return reject(new Error('单张图片不能超过 12 MB'));
+        const url = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = function() {
+            const width = image.naturalWidth;
+            const height = image.naturalHeight;
+            if (width < 1 || height < 1 || width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE || width * height > MAX_IMAGE_PIXELS) {
+                URL.revokeObjectURL(url);
+                reject(new Error('图片尺寸过大，单边最多 16384 像素且总计不超过 4000 万像素'));
+                return;
+            }
+            managedImageUrls.add(url);
+            resolve(url);
+        };
+        image.onerror = function() {
+            URL.revokeObjectURL(url);
+            reject(new Error('图片已损坏或浏览器无法读取'));
+        };
+        image.src = url;
+    });
+}
+
+function releaseManagedImages() {
+    for (const url of managedImageUrls) URL.revokeObjectURL(url);
+    managedImageUrls.clear();
+}
 
 // 切换水印开关
 $('addWatermark').addEventListener('change', function() {
@@ -405,7 +440,7 @@ $('watermarkText').addEventListener('input', updateWatermarks);
 // 更新所有水印
 function updateWatermarks() {
     const enabled = $('addWatermark').checked;
-    const text = $('watermarkText').value || '仅供参考';
+    const text = ($('watermarkText').value || '仅供参考').slice(0, 120);
     const opacity = $('watermarkOpacity').value / 100;
     document.querySelectorAll('.idcard-placeholder').forEach(function(el) {
         // 移除旧水印
@@ -422,25 +457,23 @@ function updateWatermarks() {
 }
 
 // 文件上传处理
-$('idcardUpload').addEventListener('change', function(e) {
-    const files = e.target.files;
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (!file.type.match(/image\/.*/)) continue;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-            const src = ev.target.result;
-            addThumb(src);
-            // 自动分配：第一张放正面，第二张放反面
-            if (!frontImage) {
-                setFrontImage(src);
-            } else if (!backImage) {
-                setBackImage(src);
-            }
-        };
-        reader.readAsDataURL(file);
+$('idcardUpload').addEventListener('change', async function(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length > 2) {
+        alert('一次最多选择正反面 2 张图片');
+        return;
     }
-    e.target.value = '';
+    for (const file of files) {
+        try {
+            const src = await validatedImageUrl(file);
+            const assignedType = !frontImage ? 'front' : (!backImage ? 'back' : '');
+            const thumb = addThumb(src);
+            if (assignedType) assignThumb(thumb, src, assignedType);
+        } catch (error) {
+            alert(error.message);
+        }
+    }
 });
 
 // 添加缩略图
@@ -455,63 +488,72 @@ function addThumb(src) {
     thumb.appendChild(img);
     thumb.appendChild(label);
     thumb.onclick = function() {
-        const hasFront = document.querySelector('.upload-thumb[data-type="front"]');
-        const hasBack = document.querySelector('.upload-thumb[data-type="back"]');
-        if (thumb.dataset.type === 'front') {
+        const current = thumb.dataset.type || '';
+        const next = current === '' ? 'front' : (current === 'front' ? 'back' : '');
+        if (current) clearSide(current, src);
+        if (next) assignThumb(thumb, src, next);
+        else {
             thumb.classList.remove('active');
             delete thumb.dataset.type;
-            return;
-        }
-        if (!frontImage || thumb.dataset.type !== 'front') {
-            if (hasFront) {
-                hasFront.classList.remove('active');
-                delete hasFront.dataset.type;
-                const hf = hasFront.querySelector('.upload-thumb-label');
-                if (hf) hf.textContent = '点击设置';
-            }
-            setFrontImage(src);
-            thumb.classList.add('active');
-            thumb.dataset.type = 'front';
-            label.textContent = '正面';
-            return;
-        }
-        if (!backImage || thumb.dataset.type !== 'back') {
-            if (hasBack) {
-                hasBack.classList.remove('active');
-                delete hasBack.dataset.type;
-                const hb = hasBack.querySelector('.upload-thumb-label');
-                if (hb) hb.textContent = '点击设置';
-            }
-            setBackImage(src);
-            thumb.classList.add('active');
-            thumb.dataset.type = 'back';
-            label.textContent = '反面';
+            label.textContent = '点击设置';
         }
     };
     $('uploadedImages').appendChild(thumb);
+    return thumb;
+}
+
+function assignThumb(thumb, src, type) {
+    const existing = document.querySelector('.upload-thumb[data-type="' + type + '"]');
+    if (existing && existing !== thumb) {
+        existing.classList.remove('active');
+        delete existing.dataset.type;
+        const existingLabel = existing.querySelector('.upload-thumb-label');
+        if (existingLabel) existingLabel.textContent = '点击设置';
+    }
+    if (type === 'front') setFrontImage(src);
+    else setBackImage(src);
+    thumb.classList.add('active');
+    thumb.dataset.type = type;
+    const label = thumb.querySelector('.upload-thumb-label');
+    if (label) label.textContent = type === 'front' ? '正面' : '反面';
+}
+
+function clearSide(type, expectedSrc) {
+    if (type === 'front' && (!expectedSrc || frontImage === expectedSrc)) {
+        frontImage = null;
+        renderPlaceholder('frontPlaceholder', '身份证正面');
+    }
+    if (type === 'back' && (!expectedSrc || backImage === expectedSrc)) {
+        backImage = null;
+        renderPlaceholder('backPlaceholder', '身份证反面');
+    }
 }
 
 // 添加带类型的缩略图（用于手机同步）
 function addThumbWithType(src, type) {
-    const thumb = document.createElement('div');
-    thumb.className = 'upload-thumb active';
-    thumb.dataset.type = type;
-    const img = document.createElement('img');
-    img.src = src;
-    const label = document.createElement('div');
-    label.className = 'upload-thumb-label';
-    label.textContent = type === 'front' ? '正面' : '反面';
-    thumb.appendChild(img);
-    thumb.appendChild(label);
-    $('uploadedImages').appendChild(thumb);
+    const thumb = addThumb(src);
+    assignThumb(thumb, src, type);
     return thumb;
+}
+
+function renderPlaceholder(id, label) {
+    const placeholder = $(id);
+    placeholder.classList.remove('has-image');
+    const text = document.createElement('div');
+    text.className = 'ph-label';
+    text.textContent = label;
+    placeholder.replaceChildren(text);
+    updateWatermarks();
 }
 
 function setFrontImage(src) {
     frontImage = src;
     const placeholder = $('frontPlaceholder');
     placeholder.classList.add('has-image');
-    placeholder.innerHTML = '<img src="' + src + '" />';
+    const image = new Image();
+    image.src = src;
+    image.alt = '身份证正面';
+    placeholder.replaceChildren(image);
     updateWatermarks();
     showPreview();
 }
@@ -520,7 +562,10 @@ function setBackImage(src) {
     backImage = src;
     const placeholder = $('backPlaceholder');
     placeholder.classList.add('has-image');
-    placeholder.innerHTML = '<img src="' + src + '" />';
+    const image = new Image();
+    image.src = src;
+    image.alt = '身份证反面';
+    placeholder.replaceChildren(image);
     updateWatermarks();
     showPreview();
 }
@@ -532,14 +577,11 @@ function showPreview() {
 function clearImages() {
     frontImage = null;
     backImage = null;
-    $('uploadedImages').innerHTML = '';
-    const front = $('frontPlaceholder');
-    const back = $('backPlaceholder');
-    front.classList.remove('has-image');
-    back.classList.remove('has-image');
-    front.innerHTML = '<div class="ph-label">身份证正面</div>';
-    back.innerHTML = '<div class="ph-label">身份证反面</div>';
-    updateWatermarks();
+    $('uploadedImages').replaceChildren();
+    renderPlaceholder('frontPlaceholder', '身份证正面');
+    renderPlaceholder('backPlaceholder', '身份证反面');
+    releaseManagedImages();
+    $('previewPanel').hidden = true;
 }
 
 // 导出为图片
@@ -568,11 +610,19 @@ function exportImage() {
     // 先绘制正面，完成后再绘制反面
     drawIdCardOnCanvas(ctx, frontImage, x, paddingTop, imgWidth, imgHeight, '身份证正面', function() {
         drawIdCardOnCanvas(ctx, backImage, x, paddingTop + imgHeight + 200, imgWidth, imgHeight, '身份证反面', function() {
-            // 两张都绘制完成后导出
-            const link = document.createElement('a');
-            link.download = 'idcard-print.png';
-            link.href = canvas.toDataURL('image/png');
-            link.click();
+            // 两张都绘制完成后，以 Blob 导出，避免创建超长 Base64 字符串。
+            canvas.toBlob(function(blob) {
+                if (!blob) {
+                    alert('浏览器无法生成打印图片');
+                    return;
+                }
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = 'idcard-print.png';
+                link.href = url;
+                link.click();
+                setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+            }, 'image/png');
         });
     });
 }
@@ -587,7 +637,7 @@ function drawIdCardOnCanvas(ctx, imgSrc, x, y, width, height, label, callback) {
 
     function drawWatermark() {
         if ($('addWatermark').checked) {
-            const text = $('watermarkText').value || '仅供参考';
+            const text = ($('watermarkText').value || '仅供参考').slice(0, 120);
             const opacity = $('watermarkOpacity').value / 100;
             ctx.save();
             ctx.globalAlpha = opacity;
@@ -639,33 +689,15 @@ function printPage() {
         return;
     }
     const printWindow = window.open('', '_blank');
-    const frontSrc = frontImage || '';
-    const backSrc = backImage || '';
-    const watermarkEnabled = $('addWatermark').checked;
-    const watermarkText = $('watermarkText').value || '仅供参考';
-    const watermarkOpacity = $('watermarkOpacity').value / 100;
-
-    let watermarkStyle = '';
-    if (watermarkEnabled) {
-        watermarkStyle = `
-            <style>
-            .wm-card { position: relative; }
-            .wm-card::after {
-                content: "${watermarkText}";
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%) rotate(-15deg);
-                font-size: 60px;
-                font-weight: bold;
-                color: rgba(0, 0, 0, ${watermarkOpacity});
-                pointer-events: none;
-                white-space: nowrap;
-            }
-            </style>
-        `;
+    if (!printWindow) {
+        alert('浏览器阻止了打印窗口，请允许弹窗后重试');
+        return;
     }
-
+    printWindow.opener = null;
+    const watermarkEnabled = $('addWatermark').checked;
+    const watermarkText = ($('watermarkText').value || '仅供参考').slice(0, 120);
+    const watermarkOpacity = $('watermarkOpacity').value / 100;
+    printWindow.document.open();
     printWindow.document.write(`
         <!DOCTYPE html>
         <html>
@@ -694,6 +726,18 @@ function printPage() {
                     height: auto;
                     display: block;
                 }
+                .print-watermark {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%) rotate(-15deg);
+                    font-size: 60px;
+                    font-weight: bold;
+                    color: #000;
+                    pointer-events: none;
+                    white-space: nowrap;
+                }
+                .wm-card { position: relative; }
                 .empty-hint {
                     padding: 60px 20px;
                     text-align: center;
@@ -707,29 +751,53 @@ function printPage() {
                     @page { size: A4; margin: 0; }
                 }
             </style>
-            ${watermarkStyle}
         </head>
         <body>
             <div class="page">
-                <div class="card-area wm-card">
-                    ${frontSrc ? '<img src="' + frontSrc + '">' : '<div class="empty-hint">身份证正面（未上传）</div>'}
-                </div>
-                <div class="card-area wm-card">
-                    ${backSrc ? '<img src="' + backSrc + '">' : '<div class="empty-hint">身份证反面（未上传）</div>'}
-                </div>
+                <div class="card-area wm-card" id="printFront"></div>
+                <div class="card-area wm-card" id="printBack"></div>
             </div>
-            <script>
-                window.onload = function() {
-                    setTimeout(function() {
-                        window.print();
-                    }, 500);
-                };
-            <\/script>
         </body>
         </html>
     `);
     printWindow.document.close();
+
+    const imageLoads = [];
+    function fillPrintCard(id, src, emptyText) {
+        const card = printWindow.document.getElementById(id);
+        if (src) {
+            const image = printWindow.document.createElement('img');
+            image.alt = emptyText;
+            imageLoads.push(new Promise(resolve => {
+                image.onload = resolve;
+                image.onerror = resolve;
+            }));
+            image.src = src;
+            card.appendChild(image);
+        } else {
+            const empty = printWindow.document.createElement('div');
+            empty.className = 'empty-hint';
+            empty.textContent = emptyText + '（未上传）';
+            card.appendChild(empty);
+        }
+        if (watermarkEnabled) {
+            const watermark = printWindow.document.createElement('div');
+            watermark.className = 'print-watermark';
+            watermark.style.opacity = String(watermarkOpacity);
+            watermark.textContent = watermarkText;
+            card.appendChild(watermark);
+        }
+    }
+    fillPrintCard('printFront', frontImage, '身份证正面');
+    fillPrintCard('printBack', backImage, '身份证反面');
+    Promise.all(imageLoads).then(function() {
+        setTimeout(function() { printWindow.print(); }, 300);
+    });
 }
+
+$('exportImage').addEventListener('click', exportImage);
+$('printPage').addEventListener('click', printPage);
+$('clearImages').addEventListener('click', clearImages);
 
 // 生成二维码（指向手机上传页面）
 function isLoopbackHost(hostname) {
@@ -808,6 +876,17 @@ window.addEventListener('office-qrcode-ready', generateQRCode);
 let syncInterval = null;
 let syncStatus = null;
 let syncInFlight = false;
+const syncedFiles = new Set();
+
+async function fetchWithTimeout(resource, options = {}, timeoutMs = 15000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(function() { controller.abort(); }, timeoutMs);
+    try {
+        return await fetch(resource, Object.assign({}, options, { signal: controller.signal }));
+    } finally {
+        clearTimeout(timeout);
+    }
+}
 
 function startSync() {
     if (syncInterval) clearInterval(syncInterval);
@@ -845,7 +924,7 @@ async function checkNewFiles() {
     try {
         // 添加时间戳参数防止缓存
         const ts = Date.now();
-        const response = await fetch('../api/upload.php?action=list&session=' + encodeURIComponent(uploadSession) + '&_=' + ts);
+        const response = await fetchWithTimeout('../api/upload.php?action=list&session=' + encodeURIComponent(uploadSession) + '&_=' + ts);
         if (!response.ok) {
             throw new Error('HTTP ' + response.status);
         }
@@ -854,43 +933,31 @@ async function checkNewFiles() {
             throw new Error(result.error || 'API错误');
         }
         
-        const newFiles = result.files;
+        // 接口按时间倒序返回；这里从旧到新处理，确保同一面的最新照片最终生效。
+        const newFiles = result.files.slice().reverse();
         if (newFiles.length > 0) {
             for (let i = 0; i < newFiles.length; i++) {
                 const file = newFiles[i];
+                if (syncedFiles.has(file.filename)) continue;
                 try {
-                    const imgResponse = await fetch('../api/upload.php?action=get&session=' + encodeURIComponent(uploadSession) + '&filename=' + encodeURIComponent(file.filename) + '&_=' + ts);
+                    const imgResponse = await fetchWithTimeout('../api/upload.php?action=get&session=' + encodeURIComponent(uploadSession) + '&filename=' + encodeURIComponent(file.filename) + '&_=' + ts);
                     if (!imgResponse.ok) continue;
-                    const imgResult = await imgResponse.json();
-                    if (imgResult.ok && imgResult.data) {
-                        const ext = file.filename.split('.').pop().toLowerCase();
-                        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-                        const src = 'data:' + mimeType + ';base64,' + imgResult.data;
-                        
-                        // 标记是正面还是反面
-                        const type = file.type === 'back' ? 'back' : 'front';
-                        
-                        // 添加缩略图并立即标记类型
-                        const thumb = addThumbWithType(src, type);
-                        
-                        if (type === 'front') {
-                            setFrontImage(src);
-                            showSyncStatus('✅ 已收到正面照片', 'success');
-                        } else {
-                            setBackImage(src);
-                            showSyncStatus('✅ 已收到反面照片', 'success');
-                        }
-                        
-                        // 删除服务器上的文件（已同步）；删除操作使用 POST，避免链接预加载误删。
-                        const deleteData = new FormData();
-                        deleteData.append('filename', file.filename);
-                        deleteData.append('session', uploadSession);
-                        fetch('../api/upload.php?action=delete', {
-                            method: 'POST',
-                            body: deleteData,
-                            cache: 'no-store'
-                        }).catch(function(){});
-                    }
+                    const blob = await imgResponse.blob();
+                    const src = await validatedImageUrl(blob);
+                    const type = file.type === 'back' ? 'back' : 'front';
+                    addThumbWithType(src, type);
+                    syncedFiles.add(file.filename);
+                    showSyncStatus(type === 'front' ? '✅ 已收到正面照片' : '✅ 已收到反面照片', 'success');
+
+                    // 删除服务器上的文件（已同步）；删除操作使用 POST，避免链接预加载误删。
+                    const deleteData = new FormData();
+                    deleteData.append('filename', file.filename);
+                    deleteData.append('session', uploadSession);
+                    fetchWithTimeout('../api/upload.php?action=delete', {
+                        method: 'POST',
+                        body: deleteData,
+                        cache: 'no-store'
+                    }).catch(function(){});
                 } catch (err) {
                     console.log('下载照片失败:', err);
                 }
@@ -907,7 +974,10 @@ generateQRCode();
 startSync();
 
 // 页面关闭时停止轮询
-window.addEventListener('beforeunload', stopSync);
+window.addEventListener('beforeunload', function() {
+    stopSync();
+    releaseManagedImages();
+});
 </script>
 
 <?php include '_footer.php'; ?>
