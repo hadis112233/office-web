@@ -184,6 +184,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">文本对比</div>
                         <div class="tool-desc">逐行找出两段文本的增删差异</div>
                     </a>
+                    <a class="tool-card" href="tools/random.php">
+                        <div class="tool-icon">🎲</div>
+                        <div class="tool-name">安全随机生成</div>
+                        <div class="tool-desc">安全随机数、强密码、颜色和 UUID</div>
+                    </a>
                 </div>
             </section>
 
