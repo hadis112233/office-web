@@ -164,7 +164,7 @@ const pdfToolRequirements = new Map([
   ['tools/pdf-metadata.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-to-text.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js']],
   ['tools/pdf-compress.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jspdf.umd.min.js']],
-  ['tools/pdf-watermark.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jspdf.umd.min.js']],
+  ['tools/pdf-watermark.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-to-image.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jszip.min.js']],
   ['tools/images-to-pdf.php', ['../static/vendor/jspdf.umd.min.js']],
 ]);
@@ -300,7 +300,7 @@ const hardenedPdfTools = new Map([
   ['tools/pdf-metadata.php', ['120*1024*1024', 'MAX_PAGES=1000', 'updateMetadata:false', 'pdf.getTitle()', 'pdf.setTitle', 'pdf.setKeywords', 'slice(0,500)', 'slice(0,50)', '不能替代专业取证级清理工具', 'URL.revokeObjectURL(url)', '文件只在浏览器中处理']],
   ['tools/pdf-to-text.php', ['120*1024*1024', 'MAX_PAGES=500', 'MAX_TEXT_CHARS=5000000', 'MAX_TEXT_ITEMS_PER_PAGE=200000', 'getTextContent', 'visualText', 'contentStreamText', 'cancelRequested', '扫描图片', 'URL.revokeObjectURL(url)', '文件只在浏览器中处理']],
   ['tools/pdf-compress.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
-  ['tools/pdf-watermark.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/pdf-watermark.php', ['120*1024*1024', 'MAX_OUTPUT_BYTES=180*1024*1024', 'MAX_PAGES=300', 'MAX_WATERMARK_DRAWS=20000', 'makeWatermarkPng', 'pdf.embedPng', 'page.drawImage', '原有页面内容未栅格化', '预览暂不可用，但可正常下载', 'setTimeout(()=>URL.revokeObjectURL(url),1000)']],
   ['tools/pdf-to-image.php', ['120 * 1024 * 1024', 'URL.revokeObjectURL(previewUrl)', 'URL.revokeObjectURL(url)']],
 ]);
 for (const [relative, markers] of hardenedPdfTools) {
@@ -308,6 +308,10 @@ for (const [relative, markers] of hardenedPdfTools) {
   for (const marker of markers) {
     if (!source.includes(marker)) errors.push(`${relative}：PDF 内存保护缺少 ${marker}`);
   }
+}
+const pdfWatermarkTool = fs.readFileSync(path.join(root, 'tools', 'pdf-watermark.php'), 'utf8');
+if (pdfWatermarkTool.includes('window.jspdf') || pdfWatermarkTool.includes("toDataURL('image/jpeg'")) {
+  errors.push('tools/pdf-watermark.php：仍会把完整 PDF 页面栅格化为 JPEG');
 }
 const themeScript = fs.readFileSync(path.join(root, 'js', 'theme.js'), 'utf8');
 for (const marker of ['office_theme', 'prefers-color-scheme: dark', 'theme-dark', 'theme-toggle']) {
