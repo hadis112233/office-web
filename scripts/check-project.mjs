@@ -285,11 +285,20 @@ const hardenedImageTools = new Map([
   ['tools/image-compress.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'fillRect(0, 0, canvas.width, canvas.height)', 'beforeunload', 'revoke(previewUrl)']],
   ['tools/image-format.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'beforeunload', 'revoke(previewUrl)']],
   ['tools/image-edit.php', ['MAX_HISTORY = 15', '25 * 1024 * 1024', '30000000', 'URL.revokeObjectURL(sourceUrl)', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/image-resize.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', 'beforeunload', '文件只在浏览器中处理']],
+  ['tools/image-crop.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', '裁剪范围不能超出原图', 'beforeunload', '文件只在浏览器中处理']],
+  ['tools/image-watermark.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', 'safeFontSize', 'beforeunload', '文件只在浏览器中处理']],
 ]);
 for (const [relative, markers] of hardenedImageTools) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
   for (const marker of markers) {
     if (!source.includes(marker)) errors.push(`${relative}：图片内存保护缺少 ${marker}`);
+  }
+}
+for (const relative of ['tools/image-resize.php', 'tools/image-crop.php', 'tools/image-watermark.php']) {
+  const source = fs.readFileSync(path.join(root, relative), 'utf8');
+  if (source.includes('readAsDataURL') || source.includes('resultDataURL')) {
+    errors.push(`${relative}：仍在使用高内存 Base64 图片流程`);
   }
 }
 const hardenedPdfTools = new Map([
