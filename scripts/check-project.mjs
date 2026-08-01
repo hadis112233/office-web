@@ -74,6 +74,7 @@ const officeTools = new Map([
   ['tools/unit-converter.php', ['temperature', 'storage', '交换单位']],
   ['tools/percentage-calculator.php', ['涨跌幅', 'changeRate', '不能除以 0']],
   ['tools/text-diff.php', ['compareLines', 'replaceChildren', '不会上传服务器']],
+  ['tools/random.php', ['cryptoApi.getRandomValues', 'randomBelow', 'sampleUnique', 'secureShuffle', 'cryptoApi.randomUUID', '排除易混淆字符', '不会上传服务器']],
 ]);
 for (const [relative, markers] of officeTools) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
@@ -81,6 +82,8 @@ for (const [relative, markers] of officeTools) {
     if (!source.includes(marker)) errors.push(`${relative}：办公辅助功能缺少 ${marker}`);
   }
 }
+const randomTool = fs.readFileSync(path.join(root, 'tools', 'random.php'), 'utf8');
+if (randomTool.includes('Math.random(')) errors.push('tools/random.php：安全随机工具仍在使用 Math.random()');
 
 const documentTools = new Map([
   ['tools/csv-helper.php', ['parseCsv', 'parseJson', 'maxCells=250000', 'spreadsheetSafe', 'protectFormula', '\\uFF1D', 'downloadJson', 'Object.create(null)', 'URL.revokeObjectURL', '文件只在浏览器中处理']],
