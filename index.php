@@ -267,6 +267,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">PDF 转图片</div>
                         <div class="tool-desc">将 PDF 每页导出为图片</div>
                     </a>
+                    <a class="tool-card" href="tools/pdf-to-text.php">
+                        <div class="tool-icon">📋</div>
+                        <div class="tool-name">PDF 提取文字</div>
+                        <div class="tool-desc">提取可选择文字并导出 TXT</div>
+                    </a>
                     <a class="tool-card" href="tools/pdf-watermark.php">
                         <div class="tool-icon">💧</div>
                         <div class="tool-name">PDF 加水印</div>
