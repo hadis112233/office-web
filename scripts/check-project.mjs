@@ -145,6 +145,7 @@ for (const marker of [
   'cache-from: type=gha',
   'cache-to: type=gha,mode=max,ignore-error=true',
   'api/health.php',
+  'tools/pdf-organize.php',
   'api/media.php?action=process',
   'media-smoke.mp4',
   'docker rm --force office-web-smoke',
@@ -155,6 +156,7 @@ for (const marker of [
 const pdfToolRequirements = new Map([
   ['tools/pdf-merge.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-split.php', ['../static/vendor/pdf-lib.min.js']],
+  ['tools/pdf-organize.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-compress.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jspdf.umd.min.js']],
   ['tools/pdf-watermark.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jspdf.umd.min.js']],
   ['tools/pdf-to-image.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jszip.min.js']],
@@ -287,6 +289,7 @@ for (const [relative, markers] of hardenedImageTools) {
 const hardenedPdfTools = new Map([
   ['tools/pdf-merge.php', ['selectedFiles.length > 20', '150 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
   ['tools/pdf-split.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
+  ['tools/pdf-organize.php', ['120*1024*1024', 'MAX_PAGES=150', 'sourceBytes.slice(0)', 'page.setRotation', 'copyPages', 'URL.revokeObjectURL(url)', '文件只在浏览器中处理']],
   ['tools/pdf-compress.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
   ['tools/pdf-watermark.php', ['120 * 1024 * 1024', 'setTimeout(() => URL.revokeObjectURL(url), 1000)']],
   ['tools/pdf-to-image.php', ['120 * 1024 * 1024', 'URL.revokeObjectURL(previewUrl)', 'URL.revokeObjectURL(url)']],
