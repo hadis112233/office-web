@@ -54,18 +54,33 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max,ignore-error=true
 
-      - name: Start container and verify health endpoint
+      - name: Start container and verify health and media processing
         run: |
           docker run --detach --name office-web-smoke --publish 127.0.0.1:8080:80 office-web:smoke
+          healthy=false
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:8080/api/health.php | grep --quiet '"ok":true'; then
               echo "Container health endpoint is ready"
-              exit 0
+              healthy=true
+              break
             fi
             sleep 1
           done
-          docker logs office-web-smoke
-          exit 1
+          if [ "$healthy" != "true" ]; then
+            docker logs office-web-smoke
+            exit 1
+          fi
+
+          docker exec office-web-smoke ffmpeg -hide_banner -loglevel error -y \
+            -f lavfi -i testsrc=size=320x240:rate=10 -t 1 \
+            -c:v libx264 -pix_fmt yuv420p -movflags +faststart /tmp/media-smoke.mp4
+          docker cp office-web-smoke:/tmp/media-smoke.mp4 ./media-smoke.mp4
+          media_response=$(curl --fail-with-body --silent --show-error \
+            --form "video=@media-smoke.mp4;type=video/mp4" \
+            --form "mode=compress" --form "quality=small" \
+            http://127.0.0.1:8080/api/media.php?action=process)
+          echo "$media_response"
+          echo "$media_response" | grep --quiet '"ok":true'
 
       - name: Stop smoke-test container
         if: always()
