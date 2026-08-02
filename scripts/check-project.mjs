@@ -161,6 +161,8 @@ for (const marker of [
   'MAX_HISTORY_BYTES = 128',
   'tools/pdf-compress.php',
   'MAX_PAGE_PIXELS = 16000000',
+  'tools/pdf-to-image.php',
+  'MAX_IMAGES_BYTES = 256',
   'api/media.php?action=process',
   'media-smoke.mp4',
   'idcard-smoke.png',
@@ -191,8 +193,11 @@ for (const [relative, assets] of pdfToolRequirements) {
 }
 const pdfToImage = fs.readFileSync(path.join(root, 'tools', 'pdf-to-image.php'), 'utf8');
 if (pdfToImage.includes('jspdf.umd')) errors.push('tools/pdf-to-image.php：仍在加载未使用的 jsPDF 组件');
-for (const marker of ['new window.JSZip()', "compression: 'STORE'", "a.download = 'pdf-images.zip'", 'URL.revokeObjectURL']) {
+for (const marker of ['new window.JSZip()', "compression: 'STORE'", "'-images.zip'", 'URL.revokeObjectURL']) {
   if (!pdfToImage.includes(marker)) errors.push(`tools/pdf-to-image.php：ZIP 打包或内存释放缺少 ${marker}`);
+}
+if (pdfToImage.includes('source.innerHTML') || pdfToImage.includes('output.innerHTML') || pdfToImage.includes('onclick="')) {
+  errors.push('tools/pdf-to-image.php：预览或按钮仍在使用动态 HTML 写入');
 }
 
 for (const relative of ['tools/qrcode.php', 'tools/idcard-print.php']) {
@@ -337,7 +342,7 @@ const hardenedPdfTools = new Map([
   ['tools/pdf-to-text.php', ['120*1024*1024', 'MAX_PAGES=500', 'MAX_TEXT_CHARS=5000000', 'MAX_TEXT_ITEMS_PER_PAGE=200000', 'getTextContent', 'visualText', 'contentStreamText', 'cancelRequested', '扫描图片', 'URL.revokeObjectURL(url)', '文件只在浏览器中处理']],
   ['tools/pdf-compress.php', ['MAX_FILE_BYTES = 120 * 1024 * 1024', 'MAX_PAGES = 300', 'MAX_PAGE_PIXELS = 16000000', 'MAX_CANVAS_SIDE = 8192', 'MAX_IMAGE_BYTES = 256 * 1024 * 1024', 'canvas.toBlob', 'embedJpg', 'page.cleanup()', 'loadingTask.destroy()', 'operationVersion', 'setTimeout(() => URL.revokeObjectURL(url), 1000)', '文件只在浏览器中处理']],
   ['tools/pdf-watermark.php', ['120*1024*1024', 'MAX_OUTPUT_BYTES=180*1024*1024', 'MAX_PAGES=300', 'MAX_WATERMARK_DRAWS=20000', 'makeWatermarkPng', 'pdf.embedPng', 'page.drawImage', '原有页面内容未栅格化', '预览暂不可用，但可正常下载', 'setTimeout(()=>URL.revokeObjectURL(url),1000)']],
-  ['tools/pdf-to-image.php', ['120 * 1024 * 1024', 'URL.revokeObjectURL(previewUrl)', 'URL.revokeObjectURL(url)']],
+  ['tools/pdf-to-image.php', ['MAX_FILE_BYTES = 120 * 1024 * 1024', 'MAX_PAGES = 200', 'MAX_PAGE_PIXELS = 20000000', 'MAX_CANVAS_SIDE = 8192', 'MAX_IMAGES_BYTES = 256 * 1024 * 1024', 'PREVIEW_PIXELS = 4000000', 'releaseImages', 'releasePdf', 'previewRenderTask.cancel()', 'pdfLoadingTask.destroy()', 'page.cleanup()', 'documentVersion', 'URL.revokeObjectURL(previewUrl)', 'URL.revokeObjectURL(url)', '文件只在浏览器中处理']],
 ]);
 for (const [relative, markers] of hardenedPdfTools) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
