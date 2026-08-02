@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const root = process.cwd();
 const ignored = new Set(['data', '.git']);
@@ -131,6 +132,30 @@ const requiredPdfAssets = [
 ];
 for (const asset of requiredPdfAssets) {
   if (!dockerfile.includes(asset)) errors.push(`Dockerfile：未打包离线 PDF 组件 ${asset}`);
+}
+
+const vendoredAssets = new Map([
+  ['static/vendor/jspdf.umd.min.js', { size: 364463, sha256: '98ccf17aa10c20bb1301762618fcc9b6ab3a4e7f26b6071d64d0b41154df3875' }],
+  ['static/vendor/jszip.min.js', { size: 97630, sha256: 'acc7e41455a80765b5fd9c7ee1b8078a6d160bbbca455aeae854de65c947d59e' }],
+  ['static/vendor/pdf-lib.min.js', { size: 525099, sha256: '0f9a5cad07941f0826586c94e089d89b918c46e5c17cf2d5a3c6f666e3bc694f' }],
+  ['static/vendor/pdf.min.js', { size: 320004, sha256: '5b5799e6f8c680663207ac5b42ee14eed2a406fa7af48f50c154f0c0b1566946' }],
+  ['static/vendor/pdf.worker.min.js', { size: 1087212, sha256: 'feabdf309770ed24bba31a5467836cdc8cf639c705af27d52b585b041bb8527b' }],
+  ['static/vendor/qrcode.js', { size: 24336, sha256: 'b054bbeb191ad4c130b53f534e2ebd18b805f903d8fb4b7f2b4ea5b25c27b5d6' }],
+]);
+for (const [relative, expected] of vendoredAssets) {
+  const absolute = path.join(root, relative);
+  if (!fs.existsSync(absolute)) {
+    errors.push(`${relative}：直接部署所需的离线组件缺失`);
+    continue;
+  }
+  const content = fs.readFileSync(absolute);
+  const digest = crypto.createHash('sha256').update(content).digest('hex');
+  if (content.length !== expected.size || digest !== expected.sha256) {
+    errors.push(`${relative}：固定版本组件的大小或 SHA-256 不匹配`);
+  }
+}
+if (!fs.existsSync(path.join(root, 'static', 'vendor', 'NOTICE.md'))) {
+  errors.push('static/vendor/NOTICE.md：第三方组件来源和许可说明缺失');
 }
 
 const compose = fs.readFileSync(path.join(root, 'docker-compose.yml'), 'utf8');
