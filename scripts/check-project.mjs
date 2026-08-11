@@ -183,6 +183,8 @@ for (const marker of [
   'cache-to: type=gha,mode=max,ignore-error=true',
   'api/health.php',
   'tools/pdf-organize.php',
+  'tools/pdf-remove-blank.php',
+  'MAX_ANALYSIS_PIXELS=500000',
   'tools/pdf-page-numbers.php',
   'tools/pdf-metadata.php',
   'tools/pdf-to-text.php',
@@ -210,6 +212,7 @@ const pdfToolRequirements = new Map([
   ['tools/pdf-merge.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-split.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-organize.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
+  ['tools/pdf-remove-blank.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-page-numbers.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-metadata.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-to-text.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js']],
@@ -241,6 +244,13 @@ for (const relative of ['tools/qrcode.php', 'tools/idcard-print.php']) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
   if (!source.includes('../static/vendor/qrcode.js')) errors.push(`${relative}：未优先使用本地二维码组件`);
   if (source.includes('api.qrserver.com')) errors.push(`${relative}：仍会把二维码内容发送到第三方接口`);
+}
+const pdfRemoveBlank = fs.readFileSync(path.join(root, 'tools', 'pdf-remove-blank.php'), 'utf8');
+for (const marker of ['MAX_PAGES=120', 'MAX_ANALYSIS_PIXELS=500000', 'MAX_PREVIEW_BYTES=64*1024*1024', 'histogramStats', 'pdfDocument.removePage(index)', 'sourceBytes.slice(0)', 'URL.revokeObjectURL', '文件只在浏览器中处理']) {
+  if (!pdfRemoveBlank.includes(marker)) errors.push(`tools/pdf-remove-blank.php：空白页检测或资源保护缺少 ${marker}`);
+}
+if (pdfRemoveBlank.includes('.innerHTML') || pdfRemoveBlank.includes('onclick=')) {
+  errors.push('tools/pdf-remove-blank.php：空白页工具仍在使用动态 HTML 或内联事件');
 }
 const qrCodeTool = fs.readFileSync(path.join(root, 'tools', 'qrcode.php'), 'utf8');
 for (const marker of ['../static/vendor/jsqr.min.js', 'window.jsQR', 'inversionAttempts', "addEventListener('paste'", 'maxPixels=16*1024*1024']) {

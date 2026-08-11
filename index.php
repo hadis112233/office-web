@@ -262,6 +262,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">PDF 页面整理</div>
                         <div class="tool-desc">排序、旋转和删除 PDF 页面</div>
                     </a>
+                    <a class="tool-card" href="tools/pdf-remove-blank.php">
+                        <div class="tool-icon">🧹</div>
+                        <div class="tool-name">PDF 空白页清理</div>
+                        <div class="tool-desc">自动检测、确认并删除空白页面</div>
+                    </a>
                     <a class="tool-card" href="tools/pdf-compress.php">
                         <div class="tool-icon">🗜️</div>
                         <div class="tool-name">PDF 压缩</div>
