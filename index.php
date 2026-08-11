@@ -353,6 +353,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">图片取色</div>
                         <div class="tool-desc">点击取色并提取主色调色板</div>
                     </a>
+                    <a class="tool-card" href="tools/color-contrast.php">
+                        <div class="tool-icon">◐</div>
+                        <div class="tool-name">颜色对比度</div>
+                        <div class="tool-desc">检查文字与背景是否清晰易读</div>
+                    </a>
                 </div>
             </section>
 
