@@ -364,6 +364,7 @@ for (const marker of ['selected.length>20', '80000000', '30000/width', 'resultFo
 }
 
 const hardenedImageTools = new Map([
+  ['tools/image-color-palette.php', ['MAX_FILE_BYTES=25*1024*1024', 'MAX_SOURCE_PIXELS=60000000', 'MAX_CANVAS_PIXELS=5000000', 'MAX_SAMPLES=120000', 'getImageData', 'extractPalette', 'URL.revokeObjectURL', '图片只在浏览器中处理']],
   ['tools/image-compress.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'fillRect(0, 0, canvas.width, canvas.height)', 'beforeunload', 'revoke(previewUrl)']],
   ['tools/image-format.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'beforeunload', 'revoke(previewUrl)']],
   ['tools/image-edit.php', ['MAX_HISTORY = 15', 'MAX_HISTORY_BYTES = 128 * 1024 * 1024', 'MAX_CANVAS_PIXELS = 30000000', 'MAX_CANVAS_SIDE = 16384', '25 * 1024 * 1024', 'canvasBlob', 'createImageBitmap', 'restoreHistory', 'validCanvasSize', 'historyBytes', 'URL.revokeObjectURL(sourceUrl)', 'setTimeout(() => URL.revokeObjectURL(url), 1000)', '图片只在浏览器中处理']],

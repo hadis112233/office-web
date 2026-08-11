@@ -348,6 +348,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">图片拼接</div>
                         <div class="tool-desc">纵向、横向或网格拼接多张图片</div>
                     </a>
+                    <a class="tool-card" href="tools/image-color-palette.php">
+                        <div class="tool-icon">🎯</div>
+                        <div class="tool-name">图片取色</div>
+                        <div class="tool-desc">点击取色并提取主色调色板</div>
+                    </a>
                 </div>
             </section>
 
