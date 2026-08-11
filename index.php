@@ -134,8 +134,8 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                     </a>
                     <a class="tool-card" href="tools/qrcode.php">
                         <div class="tool-icon">🔳</div>
-                        <div class="tool-name">二维码生成</div>
-                        <div class="tool-desc">文本、URL生成二维码</div>
+                        <div class="tool-name">二维码生成与识别</div>
+                        <div class="tool-desc">生成二维码，识别图片或截图内容</div>
                     </a>
                     <a class="tool-card" href="tools/idcard-print.php">
                         <div class="tool-icon">🪪</div>

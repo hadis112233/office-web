@@ -8,6 +8,7 @@ RUN npm init -y >/dev/null 2>&1 \
         jspdf@2.5.1 \
         jszip@3.10.1 \
         qrcode@1.5.4 \
+        jsqr@1.4.0 \
         hash-wasm@4.12.0 \
         esbuild@0.28.1
 
@@ -18,7 +19,12 @@ RUN ./node_modules/.bin/esbuild \
         --platform=browser \
         --format=iife \
         --minify \
-        --outfile=/assets/qrcode.js
+        --outfile=/assets/qrcode.js \
+    && ./node_modules/.bin/esbuild \
+        ./node_modules/jsqr/dist/jsQR.js \
+        --minify \
+        --legal-comments=inline \
+        --outfile=/assets/jsqr.min.js
 
 FROM php:8.3-apache
 
@@ -42,7 +48,7 @@ RUN { \
 
 COPY . /var/www/html/
 
-# 固定版本打包 PDF 前端组件，局域网断网时仍可使用全部 PDF 工具。
+# 固定版本打包前端组件，局域网断网时仍可使用 PDF、二维码和校验工具。
 RUN mkdir -p /var/www/html/static/vendor
 COPY --from=frontend-assets /assets/node_modules/pdfjs-dist/build/pdf.min.js /var/www/html/static/vendor/pdf.min.js
 COPY --from=frontend-assets /assets/node_modules/pdfjs-dist/build/pdf.worker.min.js /var/www/html/static/vendor/pdf.worker.min.js
@@ -50,6 +56,7 @@ COPY --from=frontend-assets /assets/node_modules/pdf-lib/dist/pdf-lib.min.js /va
 COPY --from=frontend-assets /assets/node_modules/jspdf/dist/jspdf.umd.min.js /var/www/html/static/vendor/jspdf.umd.min.js
 COPY --from=frontend-assets /assets/node_modules/jszip/dist/jszip.min.js /var/www/html/static/vendor/jszip.min.js
 COPY --from=frontend-assets /assets/qrcode.js /var/www/html/static/vendor/qrcode.js
+COPY --from=frontend-assets /assets/jsqr.min.js /var/www/html/static/vendor/jsqr.min.js
 COPY --from=frontend-assets /assets/node_modules/hash-wasm/dist/index.umd.min.js /var/www/html/static/vendor/hash-wasm.umd.min.js
 
 # 构建时生成现代格式背景图；源码仍保留 JPG，非 Docker 环境可正常回退。
