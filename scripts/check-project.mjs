@@ -119,19 +119,25 @@ if (signatureTool.includes('canvas.toDataURL') || signatureTool.includes('histor
 }
 
 const dockerfile = fs.readFileSync(path.join(root, 'Dockerfile'), 'utf8');
+const mainStyles = fs.readFileSync(path.join(root, 'css', 'style.css'), 'utf8');
+if (!mainStyles.trimStart().startsWith('* { box-sizing: border-box;')) {
+  errors.push('css/style.css：文件开头混入无效内容，基础盒模型可能失效');
+}
 if (!dockerfile.includes('FROM node:24-alpine AS frontend-assets')) {
   errors.push('Dockerfile：前端构建环境未使用 Node.js 24');
 }
-const requiredPdfAssets = [
+const requiredFrontendAssets = [
   'static/vendor/pdf.min.js',
   'static/vendor/pdf.worker.min.js',
   'static/vendor/pdf-lib.min.js',
   'static/vendor/jspdf.umd.min.js',
   'static/vendor/jszip.min.js',
   'static/vendor/qrcode.js',
+  'static/vendor/jsqr.min.js',
+  'static/vendor/hash-wasm.umd.min.js',
 ];
-for (const asset of requiredPdfAssets) {
-  if (!dockerfile.includes(asset)) errors.push(`Dockerfile：未打包离线 PDF 组件 ${asset}`);
+for (const asset of requiredFrontendAssets) {
+  if (!dockerfile.includes(asset)) errors.push(`Dockerfile：未打包离线前端组件 ${asset}`);
 }
 
 const vendoredAssets = new Map([
@@ -141,6 +147,8 @@ const vendoredAssets = new Map([
   ['static/vendor/pdf.min.js', { size: 320004, sha256: '5b5799e6f8c680663207ac5b42ee14eed2a406fa7af48f50c154f0c0b1566946' }],
   ['static/vendor/pdf.worker.min.js', { size: 1087212, sha256: 'feabdf309770ed24bba31a5467836cdc8cf639c705af27d52b585b041bb8527b' }],
   ['static/vendor/qrcode.js', { size: 24336, sha256: 'b054bbeb191ad4c130b53f534e2ebd18b805f903d8fb4b7f2b4ea5b25c27b5d6' }],
+  ['static/vendor/jsqr.min.js', { size: 130469, sha256: 'fc6a9b5b0735aaf4af4748e0433d7351d4b725cfb02b032c502a5b699f3e4b9d' }],
+  ['static/vendor/hash-wasm.umd.min.js', { size: 216086, sha256: '4de2772d2458710c78c00e01f8c91d4341366547e01094dd03a4fd03ce786ab4' }],
 ]);
 for (const [relative, expected] of vendoredAssets) {
   const absolute = path.join(root, relative);
@@ -175,6 +183,8 @@ for (const marker of [
   'cache-to: type=gha,mode=max,ignore-error=true',
   'api/health.php',
   'tools/pdf-organize.php',
+  'tools/pdf-remove-blank.php',
+  'MAX_ANALYSIS_PIXELS=500000',
   'tools/pdf-page-numbers.php',
   'tools/pdf-metadata.php',
   'tools/pdf-to-text.php',
@@ -202,6 +212,7 @@ const pdfToolRequirements = new Map([
   ['tools/pdf-merge.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-split.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-organize.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
+  ['tools/pdf-remove-blank.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-page-numbers.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-metadata.php', ['../static/vendor/pdf-lib.min.js']],
   ['tools/pdf-to-text.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js']],
@@ -210,6 +221,10 @@ const pdfToolRequirements = new Map([
   ['tools/pdf-to-image.php', ['../static/vendor/pdf.min.js', '../static/vendor/pdf.worker.min.js', '../static/vendor/jszip.min.js']],
   ['tools/images-to-pdf.php', ['../static/vendor/jspdf.umd.min.js']],
 ]);
+const hashChecker = fs.readFileSync(path.join(root, 'tools', 'hash-checker.php'), 'utf8');
+for (const marker of ['../static/vendor/hash-wasm.umd.min.js', 'createSHA256', 'file.slice(', '所有内容仅在浏览器本地处理']) {
+  if (!hashChecker.includes(marker)) errors.push(`tools/hash-checker.php：文件校验功能缺少 ${marker}`);
+}
 for (const [relative, assets] of pdfToolRequirements) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
   for (const asset of assets) {
@@ -229,6 +244,20 @@ for (const relative of ['tools/qrcode.php', 'tools/idcard-print.php']) {
   const source = fs.readFileSync(path.join(root, relative), 'utf8');
   if (!source.includes('../static/vendor/qrcode.js')) errors.push(`${relative}：未优先使用本地二维码组件`);
   if (source.includes('api.qrserver.com')) errors.push(`${relative}：仍会把二维码内容发送到第三方接口`);
+}
+const pdfRemoveBlank = fs.readFileSync(path.join(root, 'tools', 'pdf-remove-blank.php'), 'utf8');
+for (const marker of ['MAX_PAGES=120', 'MAX_ANALYSIS_PIXELS=500000', 'MAX_PREVIEW_BYTES=64*1024*1024', 'histogramStats', 'pdfDocument.removePage(index)', 'sourceBytes.slice(0)', 'URL.revokeObjectURL', '文件只在浏览器中处理']) {
+  if (!pdfRemoveBlank.includes(marker)) errors.push(`tools/pdf-remove-blank.php：空白页检测或资源保护缺少 ${marker}`);
+}
+if (pdfRemoveBlank.includes('.innerHTML') || pdfRemoveBlank.includes('onclick=')) {
+  errors.push('tools/pdf-remove-blank.php：空白页工具仍在使用动态 HTML 或内联事件');
+}
+const qrCodeTool = fs.readFileSync(path.join(root, 'tools', 'qrcode.php'), 'utf8');
+for (const marker of ['../static/vendor/jsqr.min.js', 'window.jsQR', 'inversionAttempts', "addEventListener('paste'", 'maxPixels=16*1024*1024']) {
+  if (!qrCodeTool.includes(marker)) errors.push(`tools/qrcode.php：二维码识别功能缺少 ${marker}`);
+}
+if (qrCodeTool.includes('onclick=') || qrCodeTool.includes('.innerHTML')) {
+  errors.push('tools/qrcode.php：二维码工具仍在使用内联事件或动态 HTML 写入');
 }
 
 const uploadApi = fs.readFileSync(path.join(root, 'api', 'upload.php'), 'utf8');

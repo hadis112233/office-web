@@ -73,6 +73,8 @@ jobs:
 
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-organize.php \
             | grep --quiet 'PDF 页面整理'
+          curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-remove-blank.php \
+            | grep --quiet 'MAX_ANALYSIS_PIXELS=500000'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-page-numbers.php \
             | grep --quiet 'PDF 添加页码'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-metadata.php \
