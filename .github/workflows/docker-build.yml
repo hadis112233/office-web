@@ -89,6 +89,8 @@ jobs:
             | grep --quiet 'MAX_HISTORY_BYTES = 128'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/image-color-palette.php \
             | grep --quiet 'MAX_SAMPLES=120000'
+          curl --fail --silent --show-error http://127.0.0.1:8080/tools/color-contrast.php \
+            | grep --quiet 'SRGB_THRESHOLD=0.04045'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-compress.php \
             | grep --quiet 'MAX_PAGE_PIXELS = 16000000'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-to-image.php \

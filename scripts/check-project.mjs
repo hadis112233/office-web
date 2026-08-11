@@ -364,6 +364,7 @@ for (const marker of ['selected.length>20', '80000000', '30000/width', 'resultFo
 }
 
 const hardenedImageTools = new Map([
+  ['tools/color-contrast.php', ['SRGB_THRESHOLD=0.04045', 'relativeLuminance', 'contrastRatio', 'closestPassingColor', 'data-threshold="4.5"', 'data-threshold="7"', '所有计算均在浏览器本地完成']],
   ['tools/image-color-palette.php', ['MAX_FILE_BYTES=25*1024*1024', 'MAX_SOURCE_PIXELS=60000000', 'MAX_CANVAS_PIXELS=5000000', 'MAX_SAMPLES=120000', 'getImageData', 'extractPalette', 'URL.revokeObjectURL', '图片只在浏览器中处理']],
   ['tools/image-compress.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'fillRect(0, 0, canvas.width, canvas.height)', 'beforeunload', 'revoke(previewUrl)']],
   ['tools/image-format.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'beforeunload', 'revoke(previewUrl)']],
