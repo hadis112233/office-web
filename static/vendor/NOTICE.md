@@ -9,5 +9,6 @@
 | `jspdf.umd.min.js` | `jspdf@2.5.1` | MIT | https://github.com/parallax/jsPDF |
 | `jszip.min.js` | `jszip@3.10.1` | MIT OR GPL-3.0-or-later | https://github.com/Stuk/jszip |
 | `qrcode.js` | `qrcode@1.5.4` + `esbuild@0.28.1` | MIT | https://github.com/soldair/node-qrcode |
+| `hash-wasm.umd.min.js` | `hash-wasm@4.12.0` | MIT | https://github.com/Daninet/hash-wasm |
 
 请勿手工修改压缩后的 JavaScript。需要升级时，应同步更新 `Dockerfile` 中的版本和 `scripts/check-project.mjs` 中的大小及 SHA-256。

@@ -189,6 +189,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">安全随机生成</div>
                         <div class="tool-desc">安全随机数、强密码、颜色和 UUID</div>
                     </a>
+                    <a class="tool-card" href="tools/hash-checker.php">
+                        <div class="tool-icon">🧾</div>
+                        <div class="tool-name">文件哈希校验</div>
+                        <div class="tool-desc">本地计算并核对文件校验值</div>
+                    </a>
                 </div>
             </section>
 

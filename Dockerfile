@@ -8,6 +8,7 @@ RUN npm init -y >/dev/null 2>&1 \
         jspdf@2.5.1 \
         jszip@3.10.1 \
         qrcode@1.5.4 \
+        hash-wasm@4.12.0 \
         esbuild@0.28.1
 
 RUN ./node_modules/.bin/esbuild \
@@ -49,6 +50,7 @@ COPY --from=frontend-assets /assets/node_modules/pdf-lib/dist/pdf-lib.min.js /va
 COPY --from=frontend-assets /assets/node_modules/jspdf/dist/jspdf.umd.min.js /var/www/html/static/vendor/jspdf.umd.min.js
 COPY --from=frontend-assets /assets/node_modules/jszip/dist/jszip.min.js /var/www/html/static/vendor/jszip.min.js
 COPY --from=frontend-assets /assets/qrcode.js /var/www/html/static/vendor/qrcode.js
+COPY --from=frontend-assets /assets/node_modules/hash-wasm/dist/index.umd.min.js /var/www/html/static/vendor/hash-wasm.umd.min.js
 
 # 构建时生成现代格式背景图；源码仍保留 JPG，非 Docker 环境可正常回退。
 RUN ffmpeg -hide_banner -loglevel error -y \
