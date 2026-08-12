@@ -358,6 +358,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">颜色对比度</div>
                         <div class="tool-desc">检查文字与背景是否清晰易读</div>
                     </a>
+                    <a class="tool-card" href="tools/image-privacy-cleaner.php">
+                        <div class="tool-icon">🛡️</div>
+                        <div class="tool-name">图片隐私清理</div>
+                        <div class="tool-desc">移除定位、设备等常见元数据</div>
+                    </a>
                 </div>
             </section>
 
