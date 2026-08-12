@@ -384,6 +384,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">去除空行重复</div>
                         <div class="tool-desc">去除空行、去重、去首尾空格</div>
                     </a>
+                    <a class="tool-card" href="tools/text-redactor.php">
+                        <div class="tool-icon">🕶️</div>
+                        <div class="tool-name">文本隐私脱敏</div>
+                        <div class="tool-desc">遮盖邮箱、手机号、证件等敏感信息</div>
+                    </a>
                     <a class="tool-card" href="tools/text-base64.php">
                         <div class="tool-icon">🔣</div>
                         <div class="tool-name">Base64 编解码</div>
