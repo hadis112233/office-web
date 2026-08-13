@@ -75,6 +75,7 @@ while ((linkMatch = toolLinkPattern.exec(homepage)) !== null) {
 
 const officeTools = new Map([
   ['tools/date-calculator.php', ['工作日', 'offsetMode', '数据仅在浏览器中处理']],
+  ['tools/calendar-event.php', ['BEGIN:VCALENDAR', 'VERSION:2.0', 'foldIcsLine', 'escapeIcsText', 'VALUE=DATE', 'BEGIN:VALARM', 'RRULE:FREQ=', 'crypto.randomUUID', 'URL.revokeObjectURL', '文件只在浏览器中生成']],
   ['tools/unit-converter.php', ['temperature', 'storage', '交换单位']],
   ['tools/percentage-calculator.php', ['涨跌幅', 'changeRate', '不能除以 0']],
   ['tools/text-diff.php', ['compareLines', 'replaceChildren', '不会上传服务器']],
