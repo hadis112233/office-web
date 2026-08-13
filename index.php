@@ -169,6 +169,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">日期计算器</div>
                         <div class="tool-desc">计算日期间隔、工作日和到期日期</div>
                     </a>
+                    <a class="tool-card" href="tools/calendar-event.php">
+                        <div class="tool-icon">📅</div>
+                        <div class="tool-name">日历事件生成</div>
+                        <div class="tool-desc">生成可导入日历的 ICS 日程文件</div>
+                    </a>
                     <a class="tool-card" href="tools/unit-converter.php">
                         <div class="tool-icon">📏</div>
                         <div class="tool-name">单位换算</div>
