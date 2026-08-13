@@ -101,6 +101,8 @@ jobs:
             | grep --quiet 'BEGIN:VCALENDAR'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/meeting-time.php \
             | grep --quiet 'zonedDateTimeToUtc'
+          curl --fail --silent --show-error http://127.0.0.1:8080/tools/batch-image-resize.php \
+            | grep --quiet 'MAX_OUTPUT_BYTES=250'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/zip-tools.php \
             | grep --quiet 'MAX_EXPANDED_BYTES=500'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-compress.php \
