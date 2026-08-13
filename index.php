@@ -333,6 +333,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">图片尺寸调整</div>
                         <div class="tool-desc">改变图片宽度和高度</div>
                     </a>
+                    <a class="tool-card" href="tools/batch-image-resize.php">
+                        <div class="tool-icon">🖼️</div>
+                        <div class="tool-name">批量图片缩放</div>
+                        <div class="tool-desc">统一尺寸后打包导出多张图片</div>
+                    </a>
                     <a class="tool-card" href="tools/image-compress.php">
                         <div class="tool-icon">🗜️</div>
                         <div class="tool-name">图片压缩</div>
