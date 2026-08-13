@@ -174,6 +174,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">日历事件生成</div>
                         <div class="tool-desc">生成可导入日历的 ICS 日程文件</div>
                     </a>
+                    <a class="tool-card" href="tools/meeting-time.php">
+                        <div class="tool-icon">🌍</div>
+                        <div class="tool-name">全球会议时间</div>
+                        <div class="tool-desc">跨时区换算并识别各地工作时段</div>
+                    </a>
                     <a class="tool-card" href="tools/unit-converter.php">
                         <div class="tool-icon">📏</div>
                         <div class="tool-name">单位换算</div>
