@@ -92,6 +92,7 @@ if (randomTool.includes('Math.random(')) errors.push('tools/random.php：安全�
 
 const documentTools = new Map([
   ['tools/batch-file-renamer.php', ['../static/vendor/jszip.min.js', 'MAX_FILES=200', 'MAX_TOTAL_BYTES=250*1024*1024', 'INVALID_NAME', 'RESERVED', 'replaceLiteral', 'duplicate', "compression:'STORE'", 'URL.revokeObjectURL', '文件只在浏览器中处理']],
+  ['tools/zip-tools.php', ['../static/vendor/jszip.min.js', 'MAX_FILES=500', 'MAX_INPUT_BYTES=250*1024*1024', 'MAX_EXPANDED_BYTES=500*1024*1024', 'MAX_RATIO=200', 'safeArchivePath', 'unsafeOriginalName', 'compressionOptions', 'URL.revokeObjectURL', '文件只在浏览器中处理']],
   ['tools/text-redactor.php', ['MAX_TEXT_LENGTH=2000000', 'MAX_CUSTOM_TERMS=100', 'luhnValid', 'idCardValid', 'ipv4Valid', 'collectMatches', 'navigator.clipboard', 'URL.revokeObjectURL', '文本不会上传服务器', '请人工复核']],
   ['tools/csv-helper.php', ['parseCsv', 'parseJson', 'maxCells=250000', 'spreadsheetSafe', 'protectFormula', '\\uFF1D', 'downloadJson', 'Object.create(null)', 'URL.revokeObjectURL', '文件只在浏览器中处理']],
   ['tools/rmb-uppercase.php', ['integerText', '999999999999.99', '正式票据请再次核对']],

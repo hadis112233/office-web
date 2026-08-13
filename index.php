@@ -225,6 +225,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">批量文件重命名</div>
                         <div class="tool-desc">预览新名称并打包下载 ZIP</div>
                     </a>
+                    <a class="tool-card" href="tools/zip-tools.php">
+                        <div class="tool-icon">🗜️</div>
+                        <div class="tool-name">ZIP 压缩包工具</div>
+                        <div class="tool-desc">本地打包、查看并安全提取文件</div>
+                    </a>
                 </div>
             </section>
 
