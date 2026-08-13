@@ -95,6 +95,8 @@ jobs:
             | grep --quiet 'MAX_SOURCE_PIXELS=50000000'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/text-redactor.php \
             | grep --quiet 'MAX_TEXT_LENGTH=2000000'
+          curl --fail --silent --show-error http://127.0.0.1:8080/tools/batch-file-renamer.php \
+            | grep --quiet 'MAX_TOTAL_BYTES=250'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-compress.php \
             | grep --quiet 'MAX_PAGE_PIXELS = 16000000'
           curl --fail --silent --show-error http://127.0.0.1:8080/tools/pdf-to-image.php \

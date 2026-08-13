@@ -215,6 +215,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">富文本编辑器</div>
                         <div class="tool-desc">本地排版、自动保存、打印和导出</div>
                     </a>
+                    <a class="tool-card" href="tools/batch-file-renamer.php">
+                        <div class="tool-icon">🏷️</div>
+                        <div class="tool-name">批量文件重命名</div>
+                        <div class="tool-desc">预览新名称并打包下载 ZIP</div>
+                    </a>
                 </div>
             </section>
 
