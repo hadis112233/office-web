@@ -142,6 +142,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">身份证打印</div>
                         <div class="tool-desc">扫描上传身份证，A4打印模板</div>
                     </a>
+                    <a class="tool-card" href="tools/id-photo.php">
+                        <div class="tool-icon">📷</div>
+                        <div class="tool-name">证件照 / 工牌</div>
+                        <div class="tool-desc">裁切证件照并生成竖版或横版工牌</div>
+                    </a>
                     <a class="tool-card" href="tools/timer.php">
                         <div class="tool-icon">📅</div>
                         <div class="tool-name">工作计划</div>
