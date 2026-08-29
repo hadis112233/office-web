@@ -137,6 +137,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">二维码生成与识别</div>
                         <div class="tool-desc">生成二维码，识别图片或截图内容</div>
                     </a>
+                    <a class="tool-card" href="tools/barcode.php">
+                        <div class="tool-icon">▥</div>
+                        <div class="tool-name">条形码生成</div>
+                        <div class="tool-desc">生成 EAN-13 商品和 Code 39 资产条码</div>
+                    </a>
                     <a class="tool-card" href="tools/idcard-print.php">
                         <div class="tool-icon">🪪</div>
                         <div class="tool-name">身份证打印</div>
