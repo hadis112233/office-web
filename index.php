@@ -189,6 +189,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">全球会议时间</div>
                         <div class="tool-desc">跨时区换算并识别各地工作时段</div>
                     </a>
+                    <a class="tool-card" href="tools/meeting-minutes.php">
+                        <div class="tool-icon">📋</div>
+                        <div class="tool-name">会议纪要</div>
+                        <div class="tool-desc">记录决策和行动项，导出 Markdown</div>
+                    </a>
                     <a class="tool-card" href="tools/unit-converter.php">
                         <div class="tool-icon">📏</div>
                         <div class="tool-name">单位换算</div>
