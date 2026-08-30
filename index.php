@@ -235,6 +235,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">人民币大写</div>
                         <div class="tool-desc">金额转换为财务票据中文大写</div>
                     </a>
+                    <a class="tool-card" href="tools/quote-generator.php">
+                        <div class="tool-icon">🧾</div>
+                        <div class="tool-name">报价单生成</div>
+                        <div class="tool-desc">自动汇总金额并打印或保存 PDF</div>
+                    </a>
                     <a class="tool-card" href="tools/rich-text-editor.php">
                         <div class="tool-icon">📝</div>
                         <div class="tool-name">富文本编辑器</div>

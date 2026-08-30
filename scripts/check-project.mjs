@@ -98,6 +98,7 @@ const documentTools = new Map([
   ['tools/text-redactor.php', ['MAX_TEXT_LENGTH=2000000', 'MAX_CUSTOM_TERMS=100', 'luhnValid', 'idCardValid', 'ipv4Valid', 'collectMatches', 'navigator.clipboard', 'URL.revokeObjectURL', '文本不会上传服务器', '请人工复核']],
   ['tools/csv-helper.php', ['parseCsv', 'parseJson', 'maxCells=250000', 'spreadsheetSafe', 'protectFormula', '\\uFF1D', 'downloadJson', 'Object.create(null)', 'URL.revokeObjectURL', '文件只在浏览器中处理']],
   ['tools/rmb-uppercase.php', ['integerText', '999999999999.99', '正式票据请再次核对']],
+  ['tools/quote-generator.php', ['office_quote_generator_draft_v1', 'MAX_ITEMS=50', 'Intl.NumberFormat', 'window.print', '报价单不是正式发票']],
   ['tools/rich-text-editor.php', ['safeHtml', "localStorage.setItem(storageKey,safeHtml())", "addEventListener('drop'", '粘贴内容会转为纯文本']],
   ['tools/json-formatter.php', ['JSON.parse', 'maxNodes=100000', 'maxDepth=100', 'errorLocation', 'sortValue', 'URL.revokeObjectURL', '内容只在浏览器中处理']],
 ]);
