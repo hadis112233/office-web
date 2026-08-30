@@ -194,6 +194,11 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">会议纪要</div>
                         <div class="tool-desc">记录决策和行动项，导出 Markdown</div>
                     </a>
+                    <a class="tool-card" href="tools/priority-matrix.php">
+                        <div class="tool-icon">🎯</div>
+                        <div class="tool-name">任务优先级矩阵</div>
+                        <div class="tool-desc">按重要和紧急程度快速安排待办</div>
+                    </a>
                     <a class="tool-card" href="tools/unit-converter.php">
                         <div class="tool-icon">📏</div>
                         <div class="tool-name">单位换算</div>
