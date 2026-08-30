@@ -380,6 +380,7 @@ const hardenedImageTools = new Map([
   ['tools/image-resize.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', 'beforeunload', '文件只在浏览器中处理']],
   ['tools/id-photo.php', ['MAX_FILE_BYTES=40*1024*1024', 'MAX_SOURCE_PIXELS=50000000', 'MAX_OUTPUT_PIXELS=30000000', 'createImageBitmap', 'drawPhoto', 'canvas.toBlob', 'URL.revokeObjectURL', '不做自动人像抠图', '照片只在浏览器中处理']],
   ['tools/batch-image-resize.php', ['../static/vendor/jszip.min.js', 'MAX_FILES=50', 'MAX_TOTAL_BYTES=200*1024*1024', 'MAX_SOURCE_PIXELS=50000000', 'MAX_OUTPUT_PIXELS=30000000', 'MAX_OUTPUT_BYTES=250*1024*1024', 'createImageBitmap', 'imageSmoothingQuality', 'canvas.toBlob', "compression:'STORE'", 'URL.revokeObjectURL', '图片只在浏览器中处理']],
+  ['tools/batch-image-watermark.php', ['../static/vendor/jszip.min.js', 'MAX_FILES=50', 'MAX_TOTAL_BYTES=200*1024*1024', 'MAX_SOURCE_PIXELS=50000000', 'MAX_OUTPUT_BYTES=250*1024*1024', 'createImageBitmap', 'drawWatermark', 'imageSmoothingQuality', 'canvas.toBlob', "compression:'STORE'", 'URL.revokeObjectURL', '图片只在浏览器中处理']],
   ['tools/image-crop.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', '裁剪范围不能超出原图', 'beforeunload', '文件只在浏览器中处理']],
   ['tools/image-watermark.php', ['allowedTypes', '40 * 1024 * 1024', '50000000', 'MAX_SIDE = 16384', 'canvas.toBlob', 'URL.revokeObjectURL', 'safeFontSize', 'beforeunload', '文件只在浏览器中处理']],
 ]);
