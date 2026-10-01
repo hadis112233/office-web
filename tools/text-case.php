@@ -1,6 +1,6 @@
 <?php
-$title = '文本大小写转换';
-$desc = '一键转换大/小写、首字母大写、倒转文本。';
+$title = '文本大小写与全半角转换';
+$desc = '一键转换大/小写、全角/半角字符和倒转文本；内容仅在浏览器中处理。';
 include '_header.php';
 ?>
             <div class="tool-panel">
@@ -11,10 +11,11 @@ include '_header.php';
                     <button class="btn" onclick="doLower()">小写 lower</button>
                     <button class="btn success" onclick="doTitle()">首字母大写</button>
                     <button class="btn warning" onclick="doReverse()">倒转文本</button>
-                    <button class="btn secondary" onclick="toggleTC()">中文简繁</button>
+                    <button class="btn secondary" onclick="toHalfWidth()">全角转半角</button>
+                    <button class="btn secondary" onclick="toFullWidth()">半角转全角</button>
                     <button class="btn secondary" onclick="clearAll()">清空</button>
                 </div>
-                <p class="tip" id="tip">提示：中文简繁按钮仅保留大写/小写按钮的显示效果，不对中文进行实际转换。</p>
+                <p class="tip" id="tip">提示：全半角转换适用于英文字母、数字、常用符号和空格；中文内容不会被改动。</p>
             </div>
             <div class="tool-panel">
                 <label for="output1">输出结果</label>
@@ -39,10 +40,19 @@ include '_header.php';
                 const text = $('input1').value || '';
                 setOutput(text.split('').reverse().join(''));
             }
-            function toggleTC() {
+            function toHalfWidth() {
                 const text = $('input1').value || '';
-                setOutput(text);
-                $('tip').innerText = '提示：中文简繁按钮已点击（无实际转换），当前文本保持原样。';
+                setOutput(text.replace(/\u3000/g, ' ').replace(/[\uFF01-\uFF5E]/g, function(char) {
+                    return String.fromCharCode(char.charCodeAt(0) - 0xFEE0);
+                }));
+                $('tip').textContent = '已转换可识别的全角英文、数字、符号和空格；中文内容保持不变。';
+            }
+            function toFullWidth() {
+                const text = $('input1').value || '';
+                setOutput(text.replace(/ /g, '\u3000').replace(/[!-~]/g, function(char) {
+                    return String.fromCharCode(char.charCodeAt(0) + 0xFEE0);
+                }));
+                $('tip').textContent = '已转换可识别的半角英文、数字、符号和空格；中文内容保持不变。';
             }
             function clearAll() { $('input1').value = ''; $('output1').value = ''; }
             function copyOutput() {

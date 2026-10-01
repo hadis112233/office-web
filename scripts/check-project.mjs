@@ -350,6 +350,13 @@ const markdownTool = fs.readFileSync(path.join(root, 'tools', 'text-markdown.php
 for (const marker of ['safeMarkdownUrl', 'blocked-link', 'noopener noreferrer']) {
   if (!markdownTool.includes(marker)) errors.push(`tools/text-markdown.php：Markdown 链接保护缺少 ${marker}`);
 }
+const textCaseTool = fs.readFileSync(path.join(root, 'tools', 'text-case.php'), 'utf8');
+for (const marker of ['toHalfWidth', 'toFullWidth', '全角转半角', '半角转全角', 'String.fromCharCode', '中文内容不会被改动']) {
+  if (!textCaseTool.includes(marker)) errors.push(`tools/text-case.php：文本格式转换功能缺少 ${marker}`);
+}
+if (textCaseTool.includes('toggleTC') || textCaseTool.includes('中文简繁')) {
+  errors.push('tools/text-case.php：仍保留无实际转换能力的中文简繁入口');
+}
 const timerTool = fs.readFileSync(path.join(root, 'tools', 'timer.php'), 'utf8');
 if (timerTool.includes('taskDiv.innerHTML') || !timerTool.includes("document.createTextNode(' ' + String(task.text || ''))")) {
   errors.push('tools/timer.php：任务名称仍可能作为 HTML 执行');

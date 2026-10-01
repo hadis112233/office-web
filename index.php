@@ -433,8 +433,8 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                 <div class="tool-grid">
                     <a class="tool-card" href="tools/text-case.php">
                         <div class="tool-icon">🔡</div>
-                        <div class="tool-name">大小写转换</div>
-                        <div class="tool-desc">大写、小写、首字母大写</div>
+                        <div class="tool-name">文本格式转换</div>
+                        <div class="tool-desc">大小写、全角与半角转换</div>
                     </a>
                     <a class="tool-card" href="tools/text-count.php">
                         <div class="tool-icon">🔢</div>
