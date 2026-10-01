@@ -167,12 +167,6 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-name">在线屏幕测试</div>
                         <div class="tool-desc">全屏切换色卡，辅助检查显示异常</div>
                     </a>
-                    <a class="tool-card" href="tools/cad-viewer.php">
-                        <div class="tool-icon">📐</div>
-                        <div class="tool-name">CAD 图纸预览</div>
-                        <div class="tool-desc">本地预览 ASCII DXF 二维图纸</div>
-                    </a>
-
                 </div>
             </section>
 
@@ -341,6 +335,9 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                         <div class="tool-icon">💧</div>
                         <div class="tool-name">PDF 加水印</div>
                         <div class="tool-desc">为 PDF 添加文字水印</div>
+                    </a>
+                    <a class="tool-card" href="tools/pdf-signature-stamp.php">
+                        <div class="tool-icon">✍️</div><div class="tool-name">PDF 签名盖章</div><div class="tool-desc">本地添加签名或印章图片</div>
                     </a>
                     <a class="tool-card" href="tools/pdf-page-numbers.php">
                         <div class="tool-icon">🔢</div>

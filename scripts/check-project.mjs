@@ -79,7 +79,6 @@ const officeTools = new Map([
   ['tools/meeting-time.php', ['Intl.DateTimeFormat', 'formatToParts', "timeZoneName:'longOffset'", 'zonedDateTimeToUtc', 'MAX_SELECTED_ZONES', 'office_meeting_time_zones', '夏令时切换', '不会上传服务器']],
   ['tools/meeting-minutes.php', ['office_meeting_minutes_draft_v1', 'MAX_ACTIONS=100', 'localStorage.setItem', 'URL.revokeObjectURL', '不会上传服务器']],
   ['tools/priority-matrix.php', ['office_priority_matrix_v1', 'MAX_TASKS=200', 'localStorage.setItem', 'URL.revokeObjectURL', '不会上传服务器']],
-  ['tools/cad-viewer.php', ['MAX_FILE_BYTES=20*1024*1024', 'MAX_ENTITIES=200000', 'parseDxf', 'LWPOLYLINE', 'AutoCAD Binary DXF', 'ResizeObserver', '图纸只在浏览器中解析']],
   ['tools/unit-converter.php', ['temperature', 'storage', '交换单位']],
   ['tools/percentage-calculator.php', ['涨跌幅', 'changeRate', '不能除以 0']],
   ['tools/text-diff.php', ['compareLines', 'replaceChildren', '不会上传服务器']],
@@ -412,6 +411,7 @@ const hardenedPdfTools = new Map([
   ['tools/pdf-to-text.php', ['120*1024*1024', 'MAX_PAGES=500', 'MAX_TEXT_CHARS=5000000', 'MAX_TEXT_ITEMS_PER_PAGE=200000', 'getTextContent', 'visualText', 'contentStreamText', 'cancelRequested', '扫描图片', 'URL.revokeObjectURL(url)', '文件只在浏览器中处理']],
   ['tools/pdf-compress.php', ['MAX_FILE_BYTES = 120 * 1024 * 1024', 'MAX_PAGES = 300', 'MAX_PAGE_PIXELS = 16000000', 'MAX_CANVAS_SIDE = 8192', 'MAX_IMAGE_BYTES = 256 * 1024 * 1024', 'canvas.toBlob', 'embedJpg', 'page.cleanup()', 'loadingTask.destroy()', 'operationVersion', 'setTimeout(() => URL.revokeObjectURL(url), 1000)', '文件只在浏览器中处理']],
   ['tools/pdf-watermark.php', ['120*1024*1024', 'MAX_OUTPUT_BYTES=180*1024*1024', 'MAX_PAGES=300', 'MAX_WATERMARK_DRAWS=20000', 'makeWatermarkPng', 'pdf.embedPng', 'page.drawImage', '原有页面内容未栅格化', '预览暂不可用，但可正常下载', 'setTimeout(()=>URL.revokeObjectURL(url),1000)']],
+  ['tools/pdf-signature-stamp.php', ['MAX_PDF=120*1024*1024', 'MAX_IMAGE=12*1024*1024', 'MAX_PAGES=300', 'embedPng', 'embedJpg', 'drawImage', '不是数字证书签名', 'URL.revokeObjectURL']],
   ['tools/pdf-to-image.php', ['MAX_FILE_BYTES = 120 * 1024 * 1024', 'MAX_PAGES = 200', 'MAX_PAGE_PIXELS = 20000000', 'MAX_CANVAS_SIDE = 8192', 'MAX_IMAGES_BYTES = 256 * 1024 * 1024', 'PREVIEW_PIXELS = 4000000', 'releaseImages', 'releasePdf', 'previewRenderTask.cancel()', 'pdfLoadingTask.destroy()', 'page.cleanup()', 'documentVersion', 'URL.revokeObjectURL(previewUrl)', 'URL.revokeObjectURL(url)', '文件只在浏览器中处理']],
 ]);
 for (const [relative, markers] of hardenedPdfTools) {
