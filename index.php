@@ -221,7 +221,7 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                     <a class="tool-card" href="tools/hash-checker.php">
                         <div class="tool-icon">🧾</div>
                         <div class="tool-name">文件哈希校验</div>
-                        <div class="tool-desc">本地计算并核对文件校验值</div>
+                        <div class="tool-desc">核对文件、查找重复并下载报告</div>
                     </a>
                 </div>
             </section>

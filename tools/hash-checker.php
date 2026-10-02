@@ -28,6 +28,7 @@ include '_header.php';
                 <div class="btn-row">
                     <button class="btn success" id="hashFilesButton" type="button">开始计算</button>
                     <button class="btn" id="copyAllButton" type="button" disabled>复制全部</button>
+                    <button class="btn" id="downloadReport" type="button" disabled>下载校验报告</button>
                     <button class="btn" id="clearFilesButton" type="button">清空</button>
                 </div>
                 <div class="hash-progress" id="hashProgress" hidden>
@@ -35,6 +36,7 @@ include '_header.php';
                     <span id="hashProgressText">准备计算…</span>
                 </div>
                 <div class="hash-results" id="hashResults" aria-live="polite"></div>
+                <div id="duplicateSummary" role="status"></div>
             </section>
 
             <section class="tool-panel">
@@ -70,6 +72,22 @@ include '_header.php';
                 const algorithmNames={MD5:'MD5',SHA1:'SHA-1',SHA256:'SHA-256',SHA512:'SHA-512'};
                 const factories={MD5:'createMD5',SHA1:'createSHA1',SHA256:'createSHA256',SHA512:'createSHA512'};
                 let selectedFiles=[],results=[],runToken=0,running=false;
+                function resetReport(){ $('downloadReport').disabled=true; $('duplicateSummary').replaceChildren(); }
+                function duplicateGroups(items){
+                    const groups=new Map();
+                    items.forEach(item=>{const key=item.algorithm+':'+item.size+':'+item.hash;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);});
+                    return Array.from(groups.values()).filter(group=>group.length>1);
+                }
+                function updateSummary(){
+                    const groups=duplicateGroups(results),box=$('duplicateSummary');box.replaceChildren();
+                    const summary=document.createElement('p');summary.textContent=groups.length?'发现 '+groups.length+' 组大小和校验值相同的文件：':'未发现大小和校验值相同的文件。';box.appendChild(summary);
+                    groups.forEach((group,index)=>{const line=document.createElement('p');line.textContent='第 '+(index+1)+' 组：'+group.map(item=>item.name).join('、');box.appendChild(line);});
+                    if(groups.length&&results[0].algorithm!=='SHA256'&&results[0].algorithm!=='SHA512'){const tip=document.createElement('p');tip.textContent='建议使用 SHA-256 再次计算后确认这些文件。';box.appendChild(tip);}
+                }
+                function reportText(items){
+                    return '文件校验报告\n'+items.map(item=>JSON.stringify({文件名:item.name,字节数:item.size,算法:algorithmNames[item.algorithm],校验值:item.hash})).join('\n')+'\n';
+                }
+                $('downloadReport').addEventListener('click',()=>{if(!results.length||running)return;const url=URL.createObjectURL(new Blob(['\uFEFF',reportText(results)],{type:'text/plain;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='文件校验报告.txt';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
                 function formatSize(bytes){if(bytes<1024)return bytes+' B';if(bytes<1048576)return(bytes/1024).toFixed(1)+' KB';if(bytes<1073741824)return(bytes/1048576).toFixed(2)+' MB';return(bytes/1073741824).toFixed(2)+' GB';}
                 function setNotice(message,error){const notice=$('hashNotice');notice.classList.toggle('error',Boolean(error));notice.querySelector('strong').textContent=error?'当前无法计算':'本地分块计算';notice.querySelector('p').textContent=message;}
                 function setBusy(value){running=value;fileButton.disabled=value;fileInput.disabled=value;$('fileAlgorithm').disabled=value;clearButton.textContent=value?'取消并清空':'清空';}
@@ -80,7 +98,7 @@ include '_header.php';
                 }
                 function fallbackCopy(value){const helper=document.createElement('textarea');helper.value=value;helper.style.position='fixed';helper.style.opacity='0';document.body.appendChild(helper);helper.select();const ok=document.execCommand('copy');helper.remove();return ok;}
                 function showFiles(files){
-                    selectedFiles=Array.from(files||[]).slice(0,maxFiles);results=[];resultsBox.replaceChildren();copyAllButton.disabled=true;
+                    selectedFiles=Array.from(files||[]).slice(0,maxFiles);results=[];resultsBox.replaceChildren();copyAllButton.disabled=true;resetReport();
                     if(!selectedFiles.length){drop.querySelector('strong').textContent='点击选择文件，或拖到这里';drop.querySelector('small').textContent='一次最多处理 20 个文件';return;}
                     drop.querySelector('strong').textContent=`已选择 ${selectedFiles.length} 个文件`;
                     drop.querySelector('small').textContent=selectedFiles.map(file=>file.name).join('、');
@@ -94,15 +112,15 @@ include '_header.php';
                 }
                 async function hashFile(file,algorithm,token,fileIndex){
                     const factory=window.hashwasm&&window.hashwasm[factories[algorithm]];if(typeof factory!=='function')throw new Error('哈希组件加载失败，请刷新页面重试');
-                    const hasher=await factory();hasher.init();let offset=0;
-                    while(offset<file.size){if(token!==runToken)throw new Error('已取消');const end=Math.min(offset+chunkSize,file.size),buffer=await file.slice(offset,end).arrayBuffer();hasher.update(new Uint8Array(buffer));offset=end;const current=file.size?offset/file.size:1;progressBar.value=Math.round(((fileIndex+current)/selectedFiles.length)*100);progressText.textContent=`正在计算 ${fileIndex+1}/${selectedFiles.length}：${file.name}（${Math.round(current*100)}%）`;await new Promise(resolve=>setTimeout(resolve,0));}
+                    const hasher=await factory();if(token!==runToken)throw new Error('已取消');hasher.init();let offset=0;
+                    while(offset<file.size){if(token!==runToken)throw new Error('已取消');const end=Math.min(offset+chunkSize,file.size),buffer=await file.slice(offset,end).arrayBuffer();if(token!==runToken)throw new Error('已取消');hasher.update(new Uint8Array(buffer));offset=end;const current=file.size?offset/file.size:1;progressBar.value=Math.round(((fileIndex+current)/selectedFiles.length)*100);progressText.textContent=`正在计算 ${fileIndex+1}/${selectedFiles.length}：${file.name}（${Math.round(current*100)}%）`;await new Promise(resolve=>setTimeout(resolve,0));}
                     if(file.size===0)hasher.update(new Uint8Array(0));return hasher.digest('hex');
                 }
                 async function calculateFiles(){
                     if(running||!selectedFiles.length){if(!selectedFiles.length)setNotice('请先选择要校验的文件。',true);return;}
-                    const algorithm=$('fileAlgorithm').value,token=++runToken;results=[];resultsBox.replaceChildren();copyAllButton.disabled=true;progress.hidden=false;progressBar.value=0;setBusy(true);
-                    try{for(let i=0;i<selectedFiles.length;i++){const file=selectedFiles[i],hash=await hashFile(file,algorithm,token,i);const item={name:file.name,size:file.size,algorithm,hash};results.push(item);resultsBox.appendChild(resultRow(item));}progressBar.value=100;progressText.textContent=`计算完成：${results.length} 个文件`;copyAllButton.disabled=false;setNotice(`已完成 ${algorithmNames[algorithm]} 计算。文件内容始终留在当前浏览器中。`,false);}
-                    catch(error){if(error.message!=='已取消')setNotice(error.message||'计算失败，请重试。',true);}
+                    const algorithm=$('fileAlgorithm').value,token=++runToken;results=[];resultsBox.replaceChildren();copyAllButton.disabled=true;resetReport();progress.hidden=false;progressBar.value=0;setBusy(true);
+                    try{for(let i=0;i<selectedFiles.length;i++){const file=selectedFiles[i],hash=await hashFile(file,algorithm,token,i);if(token!==runToken)return;const item={name:file.name,size:file.size,algorithm,hash};results.push(item);resultsBox.appendChild(resultRow(item));}progressBar.value=100;progressText.textContent=`计算完成：${results.length} 个文件`;copyAllButton.disabled=false;$('downloadReport').disabled=false;updateSummary();setNotice(`已完成 ${algorithmNames[algorithm]} 计算。文件内容始终留在当前浏览器中。`,false);}
+                    catch(error){if(token===runToken&&error.message!=='已取消')setNotice(error.message||'计算失败，请重试。',true);}
                     finally{if(token===runToken)setBusy(false);}
                 }
                 function clearFiles(){runToken++;setBusy(false);selectedFiles=[];results=[];fileInput.value='';resultsBox.replaceChildren();progress.hidden=true;progressBar.value=0;copyAllButton.disabled=true;showFiles([]);setNotice('文件不会上传服务器；大文件会分块读取，避免一次性占满浏览器内存。MD5 和 SHA-1 仅用于兼容旧校验值，不适合安全用途。',false);}
