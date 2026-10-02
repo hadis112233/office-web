@@ -32,8 +32,10 @@ include '_header.php';
                     <div class="btn-row">
                         <button class="btn success" id="generateButton" type="button">生成二维码</button>
                         <button class="btn" id="downloadButton" type="button" disabled>下载图片</button>
+                        <button class="btn" id="downloadSvgButton" type="button" disabled>下载 SVG</button>
                         <button class="btn secondary" id="clearGenerateButton" type="button">清空</button>
                     </div>
+                    <p class="barcode-help">PNG 适合直接发送；SVG 放大后仍清晰，适合海报和标签排版。</p>
                     <div id="qrBox" class="qr-preview" aria-live="polite"><span>请输入内容并点击生成</span></div>
                 </section>
 
@@ -68,6 +70,8 @@ include '_header.php';
                 const $=id=>document.getElementById(id),maxFileBytes=20*1024*1024,maxPixels=16*1024*1024,maxSide=4096;
                 const scanFile=$('scanFile'),scanDrop=$('scanDrop'),scanCanvas=$('scanCanvas'),scanContext=scanCanvas.getContext('2d',{willReadFrequently:true}),scanStatus=$('scanStatus'),scanResult=$('scanResult'),scanLink=$('scanLink'),scanButton=$('scanButton'),copyScanButton=$('copyScanButton');
                 let sourceBitmap=null;
+                let generatedSvg='',generationToken=0;
+                function invalidateGenerated(){generationToken++;generatedSvg='';$('downloadButton').disabled=true;$('downloadSvgButton').disabled=true;}
                 function placeholder(text){const span=document.createElement('span');span.textContent=text;$('qrBox').replaceChildren(span);}
                 function setScanStatus(message,type=''){scanStatus.textContent=message;scanStatus.className='scan-status'+(type?' '+type:'');}
                 function clearScanResult(){scanResult.value='';copyScanButton.disabled=true;scanLink.hidden=true;scanLink.removeAttribute('href');}
@@ -82,15 +86,17 @@ include '_header.php';
                     const phone=$('phoneNumber').value.trim().replace(/[\s()-]/g,'');if(!/^\+?[0-9]{3,30}$/.test(phone))throw new Error('请填写有效的电话号码');return 'tel:'+phone;
                 }
                 async function generate(){
+                    invalidateGenerated();const token=generationToken;
                     let text;try{text=payload();}catch(error){placeholder(error.message);return;}if(!text){placeholder('请填写内容后再生成');return;}if(!window.QRCode){placeholder('二维码生成组件未加载，请刷新页面重试');return;}
                     $('generateButton').disabled=true;placeholder('正在生成二维码…');
-                    try{const dataUrl=await window.QRCode.toDataURL(text,{width:Number($('size').value),margin:2,errorCorrectionLevel:'M'}),img=document.createElement('img');img.id='qrImg';img.src=dataUrl;img.alt='根据输入内容生成的二维码';$('qrBox').replaceChildren(img);$('downloadButton').disabled=false;}
-                    catch(error){placeholder('生成失败，请缩短内容后重试');$('downloadButton').disabled=true;}
+                    try{const options={width:Number($('size').value),margin:4,errorCorrectionLevel:'M'},dataUrl=await window.QRCode.toDataURL(text,options),svg=await window.QRCode.toString(text,{...options,type:'svg'});if(token!==generationToken)return;const img=document.createElement('img');img.id='qrImg';img.src=dataUrl;img.alt='根据输入内容生成的二维码';$('qrBox').replaceChildren(img);generatedSvg=svg;$('downloadButton').disabled=false;$('downloadSvgButton').disabled=false;}
+                    catch(error){if(token===generationToken){placeholder('生成失败，请缩短内容后重试');$('downloadButton').disabled=true;$('downloadSvgButton').disabled=true;}}
                     finally{$('generateButton').disabled=false;}
                 }
                 function downloadQR(){const img=$('qrImg');if(!img)return;const link=document.createElement('a');link.href=img.src;link.download='qrcode.png';document.body.appendChild(link);link.click();link.remove();}
-                function clearGenerate(){$('generatorFields').querySelectorAll('input:not([type=checkbox]),textarea').forEach(field=>field.value='');$('wifiSecurity').value='WPA';$('wifiHidden').checked=false;$('downloadButton').disabled=true;placeholder('请填写内容并点击生成');}
-                function switchTemplate(){const type=$('qrType').value;$('generatorFields').querySelectorAll('[data-template]').forEach(field=>field.hidden=field.dataset.template!==type);$('downloadButton').disabled=true;placeholder('请填写内容并点击生成');}
+                $('downloadSvgButton').addEventListener('click',()=>{if(!generatedSvg)return;const url=URL.createObjectURL(new Blob([generatedSvg],{type:'image/svg+xml;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='qrcode.svg';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
+                function clearGenerate(){invalidateGenerated();$('generatorFields').querySelectorAll('input:not([type=checkbox]),textarea').forEach(field=>field.value='');$('wifiSecurity').value='WPA';$('wifiHidden').checked=false;placeholder('请填写内容并点击生成');}
+                function switchTemplate(){invalidateGenerated();const type=$('qrType').value;$('generatorFields').querySelectorAll('[data-template]').forEach(field=>field.hidden=field.dataset.template!==type);placeholder('请填写内容并点击生成');}
                 function releaseBitmap(){if(sourceBitmap&&typeof sourceBitmap.close==='function')sourceBitmap.close();sourceBitmap=null;}
                 async function loadBitmap(file){
                     if(typeof createImageBitmap==='function')return createImageBitmap(file);
