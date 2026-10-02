@@ -443,8 +443,8 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                     </a>
                     <a class="tool-card" href="tools/text-duplicate.php">
                         <div class="tool-icon">🗑️</div>
-                        <div class="tool-name">去除空行重复</div>
-                        <div class="tool-desc">去除空行、去重、去首尾空格</div>
+                        <div class="tool-name">清单整理与去重</div>
+                        <div class="tool-desc">去重、自然排序、重复统计与下载</div>
                     </a>
                     <a class="tool-card" href="tools/text-redactor.php">
                         <div class="tool-icon">🕶️</div>
