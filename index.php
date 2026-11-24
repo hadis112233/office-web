@@ -201,7 +201,7 @@ $quote = $welcome_messages[date('j') % count($welcome_messages)];
                     <a class="tool-card" href="tools/unit-converter.php">
                         <div class="tool-icon">📏</div>
                         <div class="tool-name">单位换算</div>
-                        <div class="tool-desc">长度、重量、面积、温度和容量换算</div>
+                        <div class="tool-desc">长度、重量、面积、温度、容量及打印尺寸换算</div>
                     </a>
                     <a class="tool-card" href="tools/percentage-calculator.php">
                         <div class="tool-icon">％</div>
